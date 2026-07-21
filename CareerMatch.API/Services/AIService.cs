@@ -1,0 +1,905 @@
+using CareerMatch.API.DTOs;
+using CareerMatch.API.Models;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+namespace CareerMatch.API.Services
+{
+    /// <summary>
+    /// Handles all communication with OpenAI.
+    ///
+    /// Main responsibilities:
+    /// - Extract the candidate's primary role and skills from a CV.
+    /// - Extract the primary role and required skills from a job description.
+    /// - Match one candidate against multiple jobs in one OpenAI request.
+    /// - Rewrite a CV for a specific job.
+    /// - Generate a personalized cover letter.
+    /// </summary>
+    public class AIService
+    {
+        // Maximum number of job-description characters sent during matching.
+        // Keeping this small reduces prompt size, token usage, and response time.
+        private const int MatchDescriptionLimit = 1800;
+
+        // A slightly larger limit is used for CV rewriting and cover letters,
+        // where more job context helps produce better writing.
+        private const int DocumentJobDescriptionLimit = 3000;
+
+        // Used to send HTTP requests to the OpenAI API.
+        private readonly HttpClient _httpClient;
+
+        // Used to read the API key and model from appsettings.json.
+        private readonly IConfiguration _configuration;
+
+        // Shared JSON settings used when reading model responses.
+        private static readonly JsonSerializerOptions JsonOptions =
+            new()
+            {
+                PropertyNameCaseInsensitive = true
+            };
+
+        /// <summary>
+        /// Receives required dependencies through ASP.NET Core dependency injection.
+        /// </summary>
+        public AIService(
+            HttpClient httpClient,
+            IConfiguration configuration)
+        {
+            _httpClient = httpClient;
+            _configuration = configuration;
+        }
+
+        /// <summary>
+        /// Extracts the candidate's main role and normalized skills from a CV.
+        /// </summary>
+        public async Task<AICVAnalysisResult> ExtractSkillsAsync(
+            string cvText)
+        {
+            // Return an empty result if no readable CV text exists.
+            if (string.IsNullOrWhiteSpace(cvText))
+                return new AICVAnalysisResult();
+
+            // Remove unnecessary whitespace before sending the CV to OpenAI.
+            string cleanedCVText = CleanText(cvText);
+
+            // Keep the prompt short and request only the exact JSON structure needed.
+            string prompt = $@"
+Extract the candidate's main role and real skills from this CV.
+
+Return JSON only:
+{{
+  ""primaryRole"": ""Backend Developer"",
+  ""skills"": [
+    {{
+      ""skillName"": ""C#"",
+      ""yearsOfExperience"": 2
+    }}
+  ]
+}}
+
+Rules:
+- Ignore seniority in primaryRole.
+- Use common normalized skill names.
+- Keep different technologies separate.
+- Estimate years only when supported; otherwise use 0.
+- Do not invent skills.
+- No markdown or explanation.
+
+CV:
+{cleanedCVText}";
+
+            // Send the prompt using the single configured model.
+            string outputText =
+                await SendPromptToOpenAIAsync(prompt);
+            // Convert the returned JSON into the expected DTO.
+            return JsonSerializer.Deserialize<AICVAnalysisResult>(
+                       outputText,
+                       JsonOptions
+                   )
+                   ?? new AICVAnalysisResult();
+        }
+
+        /// <summary>
+        /// Extracts a job's main role and required skills.
+        ///
+        /// This method remains available for CV refinement and cover-letter features,
+        /// even though live job matching no longer depends on stored job skills.
+        /// </summary>
+        public async Task<AIJobAnalysisResult>
+            ExtractRequiredSkillsAsync(
+                string jobDescription)
+        {
+            // Return an empty result when the description is missing.
+            if (string.IsNullOrWhiteSpace(jobDescription))
+                return new AIJobAnalysisResult();
+
+            // Shorten the description to reduce token usage.
+            string preparedDescription =
+                PrepareJobDescription(
+                    jobDescription,
+                    DocumentJobDescriptionLimit
+                );
+
+            string prompt = $@"
+Extract the job's main role and required skills.
+
+Return JSON only:
+{{
+  ""primaryRole"": ""Backend Developer"",
+  ""skills"": [
+    {{
+      ""skillName"": ""C#"",
+      ""requiredYears"": 3,
+      ""importance"": ""Required""
+    }}
+  ]
+}}
+
+Rules:
+- Ignore seniority in primaryRole.
+- Extract real technical or professional skills only.
+- Normalize skill names.
+- requiredYears: use the stated value; otherwise use 0.
+- importance: Required, Preferred, or Nice-to-have.
+- Do not invent information.
+- No markdown or explanation.
+
+JOB:
+{preparedDescription}";
+
+            string outputText =
+                await SendPromptToOpenAIAsync(prompt);
+                 
+            return JsonSerializer.Deserialize<AIJobAnalysisResult>(
+                       outputText,
+                       JsonOptions
+                   )
+                   ?? new AIJobAnalysisResult();
+        }
+
+        /// <summary>
+        /// Matches one candidate against multiple jobs in one OpenAI request.
+        ///
+        /// The method sends:
+        /// - Candidate primary role.
+        /// - Candidate extracted skills and years of experience.
+        /// - User search preferences.
+        /// - The unique jobs that still require matching.
+        ///
+        /// It does not send the full CV text.
+        /// </summary>
+        public async Task<List<AIMatchResult>>
+            GenerateJobMatchesAsync(
+                string cvPrimaryRole,
+                IReadOnlyCollection<AIExtractedSkill> cvSkills,
+                JobSearchRequest preferences,
+                IReadOnlyCollection<Job> jobs)
+        {
+            // No jobs means there is nothing to send to OpenAI.
+            if (jobs.Count == 0)
+                return new List<AIMatchResult>();
+
+            // Build a small structured candidate profile.
+            var candidate = new
+            {
+                role = cvPrimaryRole,
+
+                skills = cvSkills.Select(skill => new
+                {
+                    name = skill.SkillName,
+                    years = skill.YearsOfExperience
+                })
+            };
+
+            // Send only fields that affect matching.
+            // Do not send company name, job URL, external id, or database hashes.
+            var jobInputs = jobs.Select(job => new
+            {
+                id = job.JobId,
+                title = job.Title,
+                country = job.Country,
+                city = job.City,
+                mode = job.WorkMode,
+                type = job.EmploymentType,
+
+                // Preserve only the most useful parts of long descriptions.
+                description = PrepareJobDescription(
+                    job.Description,
+                    MatchDescriptionLimit
+                )
+            });
+
+            // Include the preferences selected by the user.
+            var searchPreferences = new
+            {
+                country = preferences.Country,
+                city = preferences.City,
+                role = preferences.Role,
+                mode = preferences.WorkType,
+                type = preferences.EmploymentType
+            };
+
+            // Convert all structured data to compact JSON.
+            string candidateJson =
+                JsonSerializer.Serialize(candidate);
+
+            string preferencesJson =
+                JsonSerializer.Serialize(searchPreferences);
+
+            string jobsJson =
+                JsonSerializer.Serialize(jobInputs);
+
+            // Ask for one short result per supplied job id.
+          string prompt = $@"
+Match one candidate against every job independently and fairly.
+
+Return JSON only in this exact format:
+{{
+  ""matches"": [
+    {{
+      ""jobId"": 123,
+      ""matchScore"": 85,
+      ""matchExplanation"": ""Strong .NET and SQL alignment; Azure experience is not shown."",
+      ""recommendation"": ""Highlight backend projects and strengthen Azure knowledge.""
+    }}
+  ]
+}}
+
+SCORING PRINCIPLES:
+- Evaluate the candidate using confirmed skills, role alignment, transferable skills, seniority, location, work mode, and employment type.
+- Score each job independently.
+- A listed candidate skill is confirmed even when yearsOfExperience is 0.
+- yearsOfExperience = 0 means the duration is unknown, not that the candidate has no experience.
+- Never treat a confirmed skill with unknown duration as a missing skill.
+- Do not give a score of 0 only because years of experience are not stated.
+- Only give a very low score when there is almost no meaningful role or skill alignment.
+- Missing one technology must not destroy the entire score when the candidate has strong related skills.
+- Recognize transferable technologies and concepts where reasonable.
+- Do not invent skills, experience, projects, or qualifications.
+- Do not assume experience that is not supplied.
+
+EXPERIENCE RULES:
+- If the job does not specify required years, do not penalize the candidate for unknown years.
+- If the job specifies years and the candidate skill has yearsOfExperience = 0, apply only a small uncertainty penalty.
+- If the candidate has fewer confirmed years than required, apply a proportional penalty rather than treating the skill as missing.
+- Seniority mismatch should reduce the score, but should not automatically make it 0.
+- Internship and portfolio skills may support junior or entry-level roles even when formal years are unknown.
+
+SKILL RULES:
+- Exact required skill present: strong positive contribution.
+- Closely related or transferable skill: partial positive contribution.
+- Required skill absent: penalty based on importance.
+- Preferred or nice-to-have skill absent: small or no penalty.
+- Do not penalize for technologies that are merely examples or alternatives.
+- When a job says one of several technologies is acceptable, matching any one of them is sufficient.
+- General skills such as REST APIs, SQL, Git, OOP, testing, databases, and Agile should count across related roles.
+
+ROLE RULES:
+- Strong title and skill alignment should score well even when the titles are not identical.
+- Backend Developer, Software Engineer, .NET Developer, Java Developer, and Full Stack Developer may partially overlap depending on the supplied skills.
+- Penalize only when the job's core function clearly differs from the candidate's profile.
+
+LOCATION AND WORK RULES:
+- Do not penalize location for remote jobs.
+- Apply only a small penalty for city mismatch when the country matches.
+- Apply a moderate penalty for country mismatch only when the role is not remote.
+- Employment type and work mode should influence the score less than core skills and role fit.
+
+SCORE GUIDE:
+- 90-100: Excellent fit; most core requirements are clearly met.
+- 75-89: Strong fit; good core alignment with a few gaps.
+- 60-74: Moderate fit; several relevant skills but meaningful gaps.
+- 40-59: Weak fit; some transferable alignment but major missing requirements.
+- 20-39: Poor fit; limited relevant alignment.
+- 0-19: Almost no meaningful alignment.
+
+OUTPUT RULES:
+- Return exactly one result for every supplied job id.
+- Copy each supplied id into jobId unchanged.
+- matchScore must be an integer from 0 to 100.
+- matchExplanation must explain the strongest alignment and the main gap.
+- matchExplanation: maximum 22 words.
+- recommendation must be practical and based on the main missing requirement.
+- recommendation: maximum 16 words.
+- Never say the candidate has no experience when a skill is listed with yearsOfExperience = 0.
+- Never return markdown, analysis, notes, or extra text.
+- Return the JSON immediately.
+
+CANDIDATE:
+{candidateJson}
+
+PREFERENCES:
+{preferencesJson}
+
+JOBS:
+{jobsJson}";
+            // Send one OpenAI request for all jobs.
+            string outputText =
+                await SendPromptToOpenAIAsync(prompt);
+
+            // Deserialize the wrapper object containing the matches array.
+            var response =
+                JsonSerializer.Deserialize<AIJobMatchesResponse>(
+                    outputText,
+                    JsonOptions
+                )
+                ?? new AIJobMatchesResponse();
+
+            // Build a set of real job ids so unexpected ids are ignored.
+            var validJobIds = jobs
+                .Select(job => job.JobId)
+                .ToHashSet();
+
+            // Keep only valid, unique results.
+            return response.Matches
+                .Where(match =>
+                    validJobIds.Contains(match.JobId))
+                .GroupBy(match => match.JobId)
+                .Select(group => group.First())
+                .ToList();
+        }
+
+        /// <summary>
+        /// Rewrites a CV for a specific job while preserving factual accuracy.
+        /// </summary>
+        public async Task<string> RefineCVForJobAsync(
+            string originalCVText,
+            string cvSkillsText,
+            string jobTitle,
+            string companyName,
+            string jobDescription
+           )
+        {
+            if (string.IsNullOrWhiteSpace(originalCVText))
+            {
+                throw new ArgumentException(
+                    "Original CV text cannot be empty."
+                );
+            }
+
+            // Reduce the job-description size before sending it.
+            string preparedJobDescription =
+                PrepareJobDescription(
+                    jobDescription,
+                    DocumentJobDescriptionLimit
+                );
+
+            string prompt = $@"
+Rewrite this CV for the job while preserving complete factual accuracy.
+
+Rules:
+- Do not add or remove skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
+- Improve wording, grammar, structure, relevance, and ATS readability.
+- Emphasize only existing relevant qualifications.
+- Use a clean single-column structure with headings and concise bullet points.
+- No tables, icons, markdown fences, commentary, or placeholders.
+- Return only the complete rewritten CV.
+
+JOB:
+{jobTitle} at {companyName}
+
+JOB DESCRIPTION:
+{preparedJobDescription}
+
+
+
+CANDIDATE SKILLS:
+{cvSkillsText}
+
+ORIGINAL CV:
+{CleanText(originalCVText)}";
+
+            return await SendPromptToOpenAIAsync(prompt);
+        }
+
+        /// <summary>
+        /// Generates a personalized and truthful cover letter.
+        /// </summary>
+        public async Task<string> GenerateCoverLetterAsync(
+            string candidateCVText,
+            string candidateSkillsText,
+            string jobTitle,
+            string companyName,
+            string jobDescription
+            )
+        {
+            if (string.IsNullOrWhiteSpace(candidateCVText))
+            {
+                throw new ArgumentException(
+                    "Candidate CV text cannot be empty."
+                );
+            }
+
+            // Reduce the job-description size before sending it.
+            string preparedJobDescription =
+                PrepareJobDescription(
+                    jobDescription,
+                    DocumentJobDescriptionLimit
+                );
+
+            string prompt = $@"
+Write a truthful personalized cover letter.
+
+Rules:
+- Use only facts supported by the CV and candidate skills.
+- Do not invent or exaggerate anything.
+- Mention the exact role and company.
+- Connect the strongest real qualifications to the job.
+- Use a professional and confident tone.
+- Keep it between 220 and 300 words.
+- No bullets, markdown, placeholders, or commentary.
+- Return only the letter.
+
+JOB:
+{jobTitle} at {companyName}
+
+JOB DESCRIPTION:
+{preparedJobDescription}
+
+
+CANDIDATE SKILLS:
+{candidateSkillsText}
+
+CV:
+{CleanText(candidateCVText)}";
+
+            return await SendPromptToOpenAIAsync(prompt);
+        }
+
+        /// <summary>
+        /// Sends a prompt to the OpenAI Responses API.
+        ///
+        /// This version uses one model only:
+        /// OpenAI:Model from appsettings.json.
+        /// </summary>
+        // Add this public method inside AIService, before SendPromptToOpenAIAsync.
+
+        /// <summary>
+        /// Generates exactly five theoretical and five practical interview questions.
+        /// </summary>
+        public async Task<AIInterviewQuestionsResult>
+            GenerateInterviewQuestionsAsync(
+                string? candidatePrimaryRole,
+                string candidateSkillsText,
+                string jobTitle,
+                string companyName,
+                string jobDescription)
+        {
+            // Reject an empty job description because it is the main generation source.
+            if (string.IsNullOrWhiteSpace(jobDescription))
+            {
+                throw new ArgumentException(
+                    "Job description cannot be empty."
+                );
+            }
+
+            // Shortens the description using the same document limit as CV and cover-letter generation.
+            string preparedJobDescription =
+                PrepareJobDescription(
+                    jobDescription,
+                    DocumentJobDescriptionLimit
+                );
+
+            // Uses a safe fallback when the CV has no detected primary role.
+            string preparedCandidateRole =
+                string.IsNullOrWhiteSpace(candidatePrimaryRole)
+                    ? "Unknown"
+                    : candidatePrimaryRole.Trim();
+
+            // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
+            string prompt = $@"
+        Generate interview preparation for this exact job.
+
+        Return JSON only in this exact format:
+        {{
+          ""theoreticalQuestions"": [
+            {{
+              ""questionNumber"": 1,
+              ""question"": ""Explain dependency injection in ASP.NET Core."",
+              ""suggestedAnswer"": ""A strong answer explains the purpose, constructor injection, service registration, and service lifetimes."",
+              ""howToAnswer"": ""Define the concept, explain why it improves testability, then give a short ASP.NET Core example.""
+            }}
+          ],
+          ""practicalQuestions"": [
+            {{
+              ""questionNumber"": 6,
+              ""question"": ""Build a Dapper method that retrieves a job by id safely."",
+              ""suggestedAnswer"": ""Use an asynchronous parameterized query and QueryFirstOrDefaultAsync with an anonymous parameter object."",
+              ""howToAnswer"": ""Clarify assumptions, describe the approach, mention SQL injection protection, and explain error handling.""
+            }}
+          ]
+        }}
+
+        REQUIREMENTS:
+        - Return exactly 5 theoretical questions.
+        - Return exactly 5 practical questions.
+        - Theoretical questions must test concepts, reasoning, architecture, tools, or domain knowledge required by the job.
+        - Practical questions must use coding exercises, debugging tasks, system-design scenarios, case studies, calculations, demonstrations, or realistic job tasks depending on the role.
+        - Do not force coding questions for a non-technical role.
+        - Every question must be strongly connected to the supplied job description.
+        - Adapt difficulty to the seniority and responsibilities shown in the job.
+        - Use the candidate role and confirmed skills only to make preparation more relevant.
+        - Do not invent candidate experience.
+        - suggestedAnswer must provide a strong but concise example answer or solution.
+        - howToAnswer must explain the structure, key points, and reasoning the applicant should use.
+        - Answers must teach the applicant; do not only provide one-line responses.
+        - Practical solutions may include pseudocode or short code when appropriate.
+        - Keep each suggestedAnswer under 180 words.
+        - Keep each howToAnswer under 90 words.
+        - Use question numbers 1-5 for theoretical questions.
+        - Use question numbers 6-10 for practical questions.
+        - Never return markdown fences, notes, commentary, or extra text.
+
+        JOB:
+        {jobTitle} at {companyName}
+
+        JOB DESCRIPTION:
+        {preparedJobDescription}
+
+        CANDIDATE PRIMARY ROLE:
+        {preparedCandidateRole}
+
+        CONFIRMED CANDIDATE SKILLS:
+        {candidateSkillsText}";
+
+            // Sends one request to the existing OpenAI Responses API helper.
+            string outputText =
+                await SendPromptToOpenAIAsync(prompt);
+
+            // Converts the returned JSON into the interview-question DTO.
+            AIInterviewQuestionsResult? result =
+                JsonSerializer.Deserialize<AIInterviewQuestionsResult>(
+                    outputText,
+                    JsonOptions
+                );
+
+            // Rejects an invalid or empty OpenAI result.
+            if (result == null)
+            {
+                throw new Exception(
+                    "OpenAI returned invalid interview-question JSON."
+                );
+            }
+
+            // Returns the structured result to GeneratedInterviewQuestionsService.
+            return result;
+        }
+        /// <summary>
+        /// Classifies multiple jobs in one OpenAI request.
+        ///
+        /// OpenAI analyzes BOTH title and description and determines:
+        /// - EmploymentType: Full-time, Part-time, Contract, or Internship.
+        /// - WorkMode: On-site, Remote, or Hybrid.
+        ///
+        /// Classification caching and SQL persistence remain the responsibility
+        /// of JobSearchService.
+        /// </summary>
+        public async Task<List<AIJobClassificationItem>>
+            ClassifyJobsAsync(
+                IReadOnlyCollection<Job> jobs)
+        {
+            if (jobs == null || jobs.Count == 0)
+            {
+                return new List<AIJobClassificationItem>();
+            }
+
+            var jobInputs =
+                jobs.Select(job => new
+                {
+                    jobId = job.JobId,
+                    title = job.Title,
+                    description = PrepareJobDescription(
+                        job.Description,
+                        DocumentJobDescriptionLimit
+                    )
+                });
+
+            string jobsJson =
+                JsonSerializer.Serialize(jobInputs);
+
+            string prompt = $@"
+Classify every supplied job using BOTH its title and description.
+
+Return JSON only in this exact format:
+{{
+  ""jobs"": [
+    {{
+      ""jobId"": 1,
+      ""employmentType"": ""Full-time"",
+      ""workMode"": ""Remote""
+    }}
+  ]
+}}
+
+EMPLOYMENT TYPE:
+Allowed values only:
+- Full-time
+- Part-time
+- Contract
+- Internship
+
+Employment rules:
+- Internship includes intern, internship, trainee, apprenticeship, co-op, and student-placement roles when clearly indicated.
+- Contract includes contractor, freelance, temporary, consulting engagement, and fixed-term work when clearly indicated.
+- Part-time is used only when reduced or part-time hours are indicated.
+- Permanent employment normally means Full-time unless part-time is explicitly stated.
+- If employment type cannot be determined, return Full-time.
+
+WORK MODE:
+Allowed values only:
+- On-site
+- Remote
+- Hybrid
+
+Work-mode rules:
+- Remote includes fully remote, work from home, WFH, home-based, or work from anywhere.
+- Hybrid requires a combination of remote and workplace attendance.
+- On-site includes office-based, site-based, in-person, or location-dependent work.
+- Do not classify a job as Remote merely because remote collaboration tools are mentioned.
+- If work mode cannot be determined, return On-site.
+
+OUTPUT RULES:
+- Analyze both title and description.
+- If title and description conflict, trust the clearest explicit statement in the description.
+- Return exactly one object for every supplied job.
+- Copy every supplied jobId exactly.
+- Use only the allowed values with the exact spelling and capitalization shown above.
+- Never return explanations, markdown, notes, or additional properties.
+- Return valid JSON immediately.
+
+JOBS:
+{jobsJson}";
+
+            string outputText =
+                await SendPromptToOpenAIAsync(prompt);
+
+            AIJobClassificationResult response;
+
+            try
+            {
+                response =
+                    JsonSerializer.Deserialize<AIJobClassificationResult>(
+                        outputText,
+                        JsonOptions
+                    )
+                    ?? throw new JsonException(
+                        "The classification response was null."
+                    );
+            }
+            catch (JsonException exception)
+            {
+                throw new Exception(
+                    "OpenAI returned invalid job-classification JSON.",
+                    exception
+                );
+            }
+
+            var validJobIds =
+                jobs
+                    .Select(job => job.JobId)
+                    .ToHashSet();
+
+            return response.Jobs
+                .Where(item =>
+                    validJobIds.Contains(item.JobId)
+                )
+                .GroupBy(item =>
+                    item.JobId
+                )
+                .Select(group =>
+                    group.First()
+                )
+                .ToList();
+        }
+
+        private async Task<string> SendPromptToOpenAIAsync(
+            string prompt)
+        {
+            // Read the API key.
+            string apiKey =
+                _configuration["OpenAI:ApiKey"]
+                ?? string.Empty;
+
+            // Read the single model.
+            // The old working fallback is restored.
+            string model =
+                _configuration["OpenAI:Model"]
+                ?? "gpt-4.1-mini";
+
+            // Stop immediately if the API key is missing.
+            if (string.IsNullOrWhiteSpace(apiKey) ||
+                apiKey == "ApiKey")
+            {
+                throw new Exception(
+                    "OpenAI API key is missing in appsettings.json."
+                );
+            }
+
+            // The Responses API requires the field name to be exactly "model".
+            var requestBody = new
+            {
+                model,
+                input = prompt
+            };
+
+            // Create the HTTP POST request.
+            using var request =
+                new HttpRequestMessage(
+                    HttpMethod.Post,
+                    "https://api.openai.com/v1/responses"
+                );
+
+            // Add the API key as a Bearer token.
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    apiKey
+                );
+
+            // Serialize the request body as JSON.
+            request.Content =
+                new StringContent(
+                    JsonSerializer.Serialize(requestBody),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+            // Send the request.
+            using var response =
+                await _httpClient.SendAsync(request);
+
+            // Read the complete OpenAI response.
+            string responseString =
+                await response.Content.ReadAsStringAsync();
+
+            // Throw the actual API error instead of silently hiding it.
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception(
+                    $"OpenAI API error: {responseString}"
+                );
+            }
+
+            // Extract the text returned by the model.
+            string outputText =
+                ExtractOutputText(responseString);
+
+            if (string.IsNullOrWhiteSpace(outputText))
+            {
+                throw new Exception(
+                    "OpenAI returned empty output."
+                );
+            }
+
+            // Remove accidental markdown fences.
+            return CleanJsonOutput(outputText);
+        }
+
+        /// <summary>
+        /// Extracts the generated text from the Responses API JSON structure.
+        /// </summary>
+        private static string ExtractOutputText(
+            string responseString)
+        {
+            using var json =
+                JsonDocument.Parse(responseString);
+
+            // Some responses may include output_text directly.
+            if (json.RootElement.TryGetProperty(
+                    "output_text",
+                    out var directOutputText))
+            {
+                return directOutputText.GetString()
+                    ?? string.Empty;
+            }
+
+            // Otherwise, read the output array.
+            if (!json.RootElement.TryGetProperty(
+                    "output",
+                    out var output))
+            {
+                return string.Empty;
+            }
+
+            foreach (var item in output.EnumerateArray())
+            {
+                if (!item.TryGetProperty(
+                        "content",
+                        out var content))
+                {
+                    continue;
+                }
+
+                foreach (var contentItem
+                    in content.EnumerateArray())
+                {
+                    if (contentItem.TryGetProperty(
+                            "text",
+                            out var text))
+                    {
+                        return text.GetString()
+                            ?? string.Empty;
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Removes markdown code fences when OpenAI accidentally wraps JSON.
+        /// </summary>
+        private static string CleanJsonOutput(
+            string outputText)
+        {
+            string cleaned = outputText.Trim();
+
+            if (cleaned.StartsWith(
+                    "```json",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                cleaned = cleaned[7..];
+            }
+            else if (cleaned.StartsWith("```"))
+            {
+                cleaned = cleaned[3..];
+            }
+
+            if (cleaned.EndsWith("```"))
+            {
+                cleaned = cleaned[..^3];
+            }
+
+            return cleaned.Trim();
+        }
+
+        /// <summary>
+        /// Cleans and shortens a job description.
+        ///
+        /// Both the beginning and end are preserved because:
+        /// - The beginning usually contains the role summary.
+        /// - The end often contains requirements and qualifications.
+        /// </summary>
+        private static string PrepareJobDescription(
+            string? description,
+            int maximumLength)
+        {
+            string cleaned = CleanText(description);
+
+            if (cleaned.Length <= maximumLength)
+                return cleaned;
+
+            // Keep 45% from the beginning.
+            int beginningLength =
+                maximumLength * 45 / 100;
+
+            // Keep the remaining 55% from the end.
+            int endingLength =
+                maximumLength - beginningLength;
+
+            return cleaned[..beginningLength]
+                + " ... "
+                + cleaned[^endingLength..];
+        }
+
+        /// <summary>
+        /// Removes unnecessary spaces, line breaks, and tabs.
+        /// This reduces prompt size without changing the content.
+        /// </summary>
+        private static string CleanText(
+            string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            return string.Join(
+                " ",
+                value.Split(
+                    new[] { ' ', '\r', '\n', '\t' },
+                    StringSplitOptions.RemoveEmptyEntries
+                )
+            );
+        }
+    }
+}

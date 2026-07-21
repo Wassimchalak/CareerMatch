@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+
+# Visual Studio
+.vs/
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+
+# User files
+*.user
+*.suo
+
+# Environment files
+.env
+.env.*
+
+# ASP.NET Core development settings
+appsettings.Development.json
+appsettings.json
+appsettings.Development.json
+# User uploaded/generated files
+CareerMatch.API/Uploads/
