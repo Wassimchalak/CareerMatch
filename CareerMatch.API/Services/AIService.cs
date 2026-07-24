@@ -518,7 +518,7 @@ CV:
 Generate interview preparation for this exact job.
 
 LANGUAGE INSTRUCTIONS:
-- Detect the primary language of the JOB DESCRIPTION.
+- Detect the language used to write the JOB DESCRIPTION.
 - Write every question, suggestedAnswer, and howToAnswer in that same language.
 - Do not mix languages unless a technical term, framework name, programming language, product name, or code syntax normally remains in its original form.
 - If the job description is mainly English, generate the interview preparation in English.
