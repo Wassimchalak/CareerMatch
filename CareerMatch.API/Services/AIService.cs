@@ -381,12 +381,10 @@ JOBS:
 Rewrite this CV for the job while preserving complete factual accuracy.
 
 FIRST:
-- Detect the language of the JOB DESCRIPTION.
-- Generate the ENTIRE rewritten CV in that same language.
-- Do not mix languages.
-- If the job description is in English, write everything in English.
-- If the job description is in Arabic, write everything in Arabic.
-- If the job description is in French, write everything in French.
+- Write the ENTIRE rewritten CV in English only.
+- Do not detect or use the language of the job description.
+- Even if the job description is written in another language, write the complete CV in natural, professional English.
+- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, and similar technologies in their original form.
 
 Rules:
 - Do not add or remove languages,skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
@@ -442,12 +440,10 @@ ORIGINAL CV:
 Write a truthful, personalized cover letter.
 
 FIRST:
-- Detect the language of the JOB DESCRIPTION.
-- Write the ENTIRE cover letter in that same language.
-- Do not mix languages.
-- If the job description is in English, write everything in English.
-- If the job description is in Arabic, write everything in Arabic.
-- If the job description is in French, write everything in French.
+- Write the ENTIRE cover letter in English only.
+- Do not detect or use the language of the job description.
+- Even if the job description is written in another language, write the complete cover letter in natural, professional English.
+- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, and similar technologies in their original form.
 
 Rules:
 - Use only facts supported by the CV and candidate skills.
@@ -510,16 +506,11 @@ CV:
 Generate interview preparation for this exact job.
 
 LANGUAGE INSTRUCTIONS:
-- Detect the dominant language used in the JOB DESCRIPTION.
-- Use the JOB DESCRIPTION as the only source for language detection.
-- Do not determine the output language from the job title, company name, country, city, candidate CV, candidate role, or candidate skills.
-- Write every question, suggestedAnswer, and howToAnswer in the detected dominant language.
-- If the job description contains more than one language, use the language that represents most of the meaningful descriptive content.
-- Ignore isolated technical terms, framework names, programming languages, product names, company names, abbreviations, URLs, and code when detecting the dominant language.
-- Keep technical terms in their commonly used original form when translating them would be unnatural.
-- If the job description is empty, too short, or its dominant language cannot be identified reliably, use English.
+- Write every question, suggestedAnswer, and howToAnswer in English only.
+- Do not detect or use the language of the job description.
+- Even if the job description is written in another language, translate the relevant meaning and generate the complete output in English.
+- Keep technical terms such as programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, and product names in their commonly used original form.
 - Keep all JSON property names exactly as shown below in English.
-- Translate only the JSON text values.
 
 Return JSON only in this exact format:
 {{
