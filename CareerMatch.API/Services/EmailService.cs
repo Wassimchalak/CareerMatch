@@ -17,6 +17,7 @@ namespace CareerMatch.API.Services
 
         public async Task SendPasswordResetEmailAsync(
             string recipientEmail,
+            string recipientName,
             string resetLink)
         {
             string fromEmail =
@@ -31,7 +32,10 @@ namespace CareerMatch.API.Services
             {
                 From = $"{fromName} <{fromEmail}>",
                 Subject = "Reset your CareerMatch password",
-                HtmlBody = BuildPasswordResetEmail(resetLink)
+                HtmlBody = BuildPasswordResetEmail(
+                    recipientName,
+                    resetLink
+                )
             };
 
             message.To.Add(recipientEmail);
@@ -40,8 +44,14 @@ namespace CareerMatch.API.Services
         }
 
         private static string BuildPasswordResetEmail(
+            string recipientName,
             string resetLink)
         {
+            string safeName =
+                string.IsNullOrWhiteSpace(recipientName)
+                    ? "there"
+                    : recipientName.Trim();
+
             return $"""
                 <!DOCTYPE html>
                 <html>
@@ -84,6 +94,15 @@ namespace CareerMatch.API.Services
                                             ">
                                                 Reset your password
                                             </h1>
+
+                                            <p style="
+                                                margin: 0 0 16px;
+                                                color: #4b5563;
+                                                font-size: 16px;
+                                                line-height: 1.6;
+                                            ">
+                                                Hello {safeName},
+                                            </p>
 
                                             <p style="
                                                 margin: 0 0 16px;
@@ -146,9 +165,10 @@ namespace CareerMatch.API.Services
                                                 font-size: 13px;
                                                 line-height: 1.6;
                                             ">
+                                                This link expires in 30 minutes.
                                                 If you did not request this
-                                                password reset, you can
-                                                ignore this email.
+                                                password reset, you can ignore
+                                                this email.
                                             </p>
                                         </td>
                                     </tr>
