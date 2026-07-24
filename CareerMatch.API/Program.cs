@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using QuestPDF.Infrastructure;
+using Resend;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,19 +17,21 @@ builder.Services.AddControllers();
 //
 // CORS
 //
-// Local React frontend is allowed now.
-// Later, add your deployed Vercel URL as another origin.
+// Local frontend is allowed now.
+// Add your deployed Vercel URL later through configuration.
 //
+string[] allowedOrigins =
+    builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>()
+    ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5173"
-                // Add your Vercel URL later:
-                // "https://your-project.vercel.app"
-            )
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -87,9 +90,29 @@ builder.Services.AddScoped<GeneratedCoverLetterService>();
 builder.Services.AddScoped<GeneratedInterviewQuestionsService>();
 
 //
-// HttpClient
+// General HttpClient support
 //
 builder.Services.AddHttpClient();
+
+//
+// Resend email API
+//
+string resendApiKey =
+    builder.Configuration["Resend:ApiKey"]
+    ?? throw new Exception(
+        "Resend:ApiKey is missing from configuration."
+    );
+
+builder.Services.AddOptions();
+
+builder.Services.AddHttpClient<ResendClient>();
+
+builder.Services.Configure<ResendClientOptions>(options =>
+{
+    options.ApiToken = resendApiKey;
+});
+
+builder.Services.AddTransient<IResend, ResendClient>();
 
 //
 // JWT configuration
@@ -154,7 +177,7 @@ builder.Services.AddAuthorization();
 QuestPDF.Settings.License = LicenseType.Community;
 
 //
-// Build the application
+// Build application
 //
 var app = builder.Build();
 
@@ -171,8 +194,8 @@ app.UseSwaggerUI();
 app.UseCors("FrontendPolicy");
 
 //
-// Render terminates HTTPS before forwarding requests to the container.
-// Keep HTTPS redirection for local development only.
+// Render handles HTTPS externally.
+// Keep local HTTPS redirection outside production.
 //
 if (!app.Environment.IsProduction())
 {
@@ -204,6 +227,6 @@ app.MapGet("/health", () =>
 });
 
 //
-// Start the application
+// Start application
 //
 app.Run();
