@@ -17,14 +17,25 @@ builder.Services.AddControllers();
 //
 // CORS
 //
-// Local frontend is allowed now.
-// Add your deployed Vercel URL later through configuration.
+// Always allow the local React frontend and the deployed Vercel frontend.
+// Additional origins can still be added through configuration.
 //
-string[] allowedOrigins =
+string[] configuredOrigins =
     builder.Configuration
         .GetSection("Cors:AllowedOrigins")
         .Get<string[]>()
-    ?? ["http://localhost:5173"];
+    ?? [];
+
+string[] allowedOrigins =
+    configuredOrigins
+        .Concat(
+        [
+            "http://localhost:5173",
+            "https://career-match-iota.vercel.app"
+        ])
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
 builder.Services.AddCors(options =>
 {
