@@ -510,7 +510,7 @@ CV:
 Generate interview preparation for this exact job.
 
 LANGUAGE INSTRUCTIONS:
-- Detect the dominant natural language used in the JOB DESCRIPTION.
+- Detect the dominant language used in the JOB DESCRIPTION.
 - Use the JOB DESCRIPTION as the only source for language detection.
 - Do not determine the output language from the job title, company name, country, city, candidate CV, candidate role, or candidate skills.
 - Write every question, suggestedAnswer, and howToAnswer in the detected dominant language.

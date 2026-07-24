@@ -18,6 +18,15 @@ const loadingMessages = [
     "🚀 Preparing your personalized job list...",
     "⏳ Just a few more seconds..."
 ];
+
+const cvUploadMessages = [
+    "Uploading your CV...",
+    "Analyzing your experience...",
+    "Extracting your skills...",
+    "Identifying your primary role...",
+    "Organizing your career profile...",
+    "Just a second more..."
+];
 const citiesByCountry: Record<string, string[]> = {
     lebanon: [
         "Beirut",
@@ -354,6 +363,9 @@ const readStoredRevealedMatchJobIds = () => {
 function DashboardPage() {
     const navigate = useNavigate();
     const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+    const [cvUploadMessageIndex, setCvUploadMessageIndex] =
+        useState(0);
+
     const [sidebarOpen, setSidebarOpen] =
         useState(false);
 
@@ -451,6 +463,25 @@ useEffect(() => {
 
     return () => clearInterval(interval);
 }, [searchingJobs]);
+
+useEffect(() => {
+    if (!uploadingCV) {
+        setCvUploadMessageIndex(0);
+        return;
+    }
+
+    const interval = window.setInterval(() => {
+        setCvUploadMessageIndex((previousIndex) =>
+            previousIndex < cvUploadMessages.length - 1
+                ? previousIndex + 1
+                : previousIndex
+        );
+    }, 3500);
+
+    return () => {
+        window.clearInterval(interval);
+    };
+}, [uploadingCV]);
 
     useEffect(() => {
         sessionStorage.setItem(
@@ -1559,21 +1590,36 @@ SetStateAction<Set<number>>
                                 </div>
                             </label>
 
-                            <button
-                                type="button"
-                                className="dashboard-primary-button"
-                                disabled={
-                                    !selectedFile ||
-                                    uploadingCV
-                                }
-                                onClick={
-                                    handleUploadCV
-                                }
-                            >
-                                {uploadingCV
-                                    ? "Uploading..."
-                                    : "Upload CV"}
-                            </button>
+                            <div className="cv-upload-action">
+                                <button
+                                    type="button"
+                                    className="dashboard-primary-button"
+                                    disabled={!selectedFile || uploadingCV}
+                                    onClick={handleUploadCV}
+                                >
+                                    {uploadingCV
+                                        ? "Processing CV..."
+                                        : "Upload CV"}
+                                </button>
+
+                                {uploadingCV && (
+                                    <div
+                                        className="cv-upload-progress"
+                                        role="status"
+                                        aria-live="polite"
+                                    >
+                                        <span className="cv-upload-spinner" />
+
+                                        <span className="cv-upload-message">
+                                            {
+                                                cvUploadMessages[
+                                                    cvUploadMessageIndex
+                                                ]
+                                            }
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </section>
 
