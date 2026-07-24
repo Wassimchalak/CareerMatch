@@ -55,21 +55,17 @@ namespace CareerMatch.API.Services
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
-            // Loads the exact application, CV role, and job.
+            // Loads the exact application and its related job.
             var applicationData =
                 await connection.QueryFirstOrDefaultAsync<
                     InterviewApplicationData>(
                     @"
                     SELECT
                         ja.ApplicationId,
-                        ja.CVId,
-                        cv.PrimaryRole AS CandidatePrimaryRole,
                         j.Title AS JobTitle,
                         j.CompanyName,
                         j.Description AS JobDescription
                     FROM JobApplications ja
-                    LEFT JOIN CVs cv
-                        ON ja.CVId = cv.CVId
                     INNER JOIN Jobs j
                         ON ja.JobId = j.JobId
                     WHERE ja.ApplicationId = @ApplicationId
@@ -79,11 +75,14 @@ namespace CareerMatch.API.Services
                     {
                         // Passes the application id safely.
                         ApplicationId = applicationId,
+
+                        // Ensures the application belongs to the authenticated user.
                         UserId = authenticatedUserId
                     }
                 );
 
-            // Returns null when the application does not exist.
+            // Returns null when the application does not exist
+            // or does not belong to the authenticated user.
             if (applicationData == null)
                 return null;
 
@@ -96,52 +95,11 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Candidate CV data is optional for interview-question generation.
-            // When no CV exists, questions are generated from the job itself.
-            var candidateSkills =
-                new List<InterviewCandidateSkillData>();
-
-            if (applicationData.CVId.HasValue)
-            {
-                candidateSkills =
-                    (
-                        await connection.QueryAsync<
-                            InterviewCandidateSkillData>(
-                            @"
-                            SELECT
-                                s.SkillName,
-                                ecs.YearsOfExperience
-                            FROM ExtractedCVSkills ecs
-                            INNER JOIN Skills s
-                                ON ecs.SkillId = s.SkillId
-                            WHERE ecs.CVId = @CVId
-                            ORDER BY s.SkillName;
-                            ",
-                            new
-                            {
-                                CVId = applicationData.CVId.Value
-                            }
-                        )
-                    ).ToList();
-            }
-
-            string candidateSkillsText =
-                applicationData.CVId.HasValue
-                    ? BuildCandidateSkillsText(candidateSkills)
-                    : "No CareerMatch CV was uploaded. Base the questions on the job title and description only.";
-
-            string candidatePrimaryRole =
-                string.IsNullOrWhiteSpace(
-                    applicationData.CandidatePrimaryRole)
-                    ? applicationData.JobTitle
-                    : applicationData.CandidatePrimaryRole;
-
-            // Generates exactly five theoretical and five practical questions.
+            // Generates exactly five theoretical and five practical questions
+            // using only the job title, company name, and description.
             AIInterviewQuestionsResult questions =
                 await _aiService
                     .GenerateInterviewQuestionsAsync(
-                        candidatePrimaryRole,
-                        candidateSkillsText,
                         applicationData.JobTitle,
                         applicationData.CompanyName,
                         applicationData.JobDescription
@@ -178,13 +136,13 @@ namespace CareerMatch.API.Services
                 pdfFolder
             );
 
-            // Creates safe filename segments.
+            // Creates a safe job-title filename segment.
             string safeJobTitle =
                 CreateSafeFileName(
                     applicationData.JobTitle
                 );
 
-            // Creates a safe company segment.
+            // Creates a safe company-name filename segment.
             string safeCompanyName =
                 CreateSafeFileName(
                     applicationData.CompanyName
@@ -209,7 +167,7 @@ namespace CareerMatch.API.Services
                 pdfFilePath
             );
 
-            // Checks whether this application already has a current question set.
+            // Checks whether this application already has a generated question set.
             int? existingId =
                 await connection.QueryFirstOrDefaultAsync<int?>(
                     @"
@@ -222,8 +180,7 @@ namespace CareerMatch.API.Services
                     new
                     {
                         // Searches by application.
-                        ApplicationId =
-                            applicationId
+                        ApplicationId = applicationId
                     }
                 );
 
@@ -234,24 +191,22 @@ namespace CareerMatch.API.Services
                     @"
                     UPDATE GeneratedInterviewQuestions
                     SET
-                        GeneratedQuestions =
-                            @GeneratedQuestions,
-                        GeneratedAt =
-                            @GeneratedAt
+                        GeneratedQuestions = @GeneratedQuestions,
+                        GeneratedAt = @GeneratedAt
                     WHERE GeneratedInterviewQuestionId =
                         @GeneratedInterviewQuestionId;
                     ",
                     new
                     {
-                        // Selects the row.
+                        // Selects the existing row.
                         GeneratedInterviewQuestionId =
                             existingId.Value,
 
-                        // Stores structured JSON.
+                        // Stores the structured JSON.
                         GeneratedQuestions =
                             generatedQuestionsJson,
 
-                        // Stores generation time.
+                        // Stores the generation time.
                         GeneratedAt =
                             generatedAt
                     }
@@ -281,11 +236,11 @@ namespace CareerMatch.API.Services
                         ApplicationId =
                             applicationId,
 
-                        // Stores structured JSON.
+                        // Stores the structured JSON.
                         GeneratedQuestions =
                             generatedQuestionsJson,
 
-                        // Stores generation time.
+                        // Stores the generation time.
                         GeneratedAt =
                             generatedAt
                     }
@@ -331,8 +286,8 @@ namespace CareerMatch.API.Services
                     // Adds margins.
                     page.Margin(40);
 
-                    // Sets default typography.
-                  page.DefaultTextStyle(style =>
+                    // Uses the bundled Arabic-compatible font.
+                    page.DefaultTextStyle(style =>
                         style
                             .FontFamily("Noto Sans Arabic")
                             .FontSize(10)
@@ -505,27 +460,6 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Converts candidate skills into prompt text.
-        private static string BuildCandidateSkillsText(
-            List<InterviewCandidateSkillData> skills)
-        {
-            // Provides a clear fallback.
-            if (skills.Count == 0)
-            {
-                return
-                    "No extracted candidate skills were found.";
-            }
-
-            // Creates one line per skill.
-            return string.Join(
-                Environment.NewLine,
-                skills.Select(skill =>
-                    $"- {skill.SkillName}: " +
-                    $"{skill.YearsOfExperience ?? 0} years"
-                )
-            );
-        }
-
         // Confirms the exact required output.
         private static void ValidateAIResult(
             AIInterviewQuestionsResult result)
@@ -638,21 +572,11 @@ namespace CareerMatch.API.Services
                 : safeValue;
         }
 
-        // Holds application, CV, and job query data.
+        // Holds application and job query data.
         private class InterviewApplicationData
         {
             // Stores the application id.
             public int ApplicationId { get; set; }
-
-            // Stores the exact CV id.
-            public int? CVId { get; set; }
-
-            // Stores the candidate primary role.
-            public string? CandidatePrimaryRole
-            {
-                get;
-                set;
-            }
 
             // Stores the job title.
             public string JobTitle { get; set; }
@@ -665,21 +589,6 @@ namespace CareerMatch.API.Services
             // Stores the full job description.
             public string JobDescription { get; set; }
                 = string.Empty;
-        }
-
-        // Holds one candidate skill row.
-        private class InterviewCandidateSkillData
-        {
-            // Stores the skill name.
-            public string SkillName { get; set; }
-                = string.Empty;
-
-            // Stores known or unknown experience.
-            public decimal? YearsOfExperience
-            {
-                get;
-                set;
-            }
         }
     }
 }

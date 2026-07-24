@@ -484,48 +484,42 @@ CV:
         /// <summary>
         /// Generates exactly five theoretical and five practical interview questions.
         /// </summary>
-        public async Task<AIInterviewQuestionsResult>
-            GenerateInterviewQuestionsAsync(
-                string? candidatePrimaryRole,
-                string candidateSkillsText,
-                string jobTitle,
-                string companyName,
-                string jobDescription)
-        {
-            // Reject an empty job description because it is the main generation source.
-            if (string.IsNullOrWhiteSpace(jobDescription))
-            {
-                throw new ArgumentException(
-                    "Job description cannot be empty."
-                );
-            }
+       public async Task<AIInterviewQuestionsResult>
+    GenerateInterviewQuestionsAsync(
+        string jobTitle,
+        string companyName,
+        string jobDescription)
+{
+    // Reject an empty job description because it is the main generation source.
+    if (string.IsNullOrWhiteSpace(jobDescription))
+    {
+        throw new ArgumentException(
+            "Job description cannot be empty."
+        );
+    }
 
-            // Shortens the description using the same document limit as CV and cover-letter generation.
-            string preparedJobDescription =
-                PrepareJobDescription(
-                    jobDescription,
-                    DocumentJobDescriptionLimit
-                );
+    // Shortens the description using the existing document limit.
+    string preparedJobDescription =
+        PrepareJobDescription(
+            jobDescription,
+            DocumentJobDescriptionLimit
+        );
 
-            // Uses a safe fallback when the CV has no detected primary role.
-            string preparedCandidateRole =
-                string.IsNullOrWhiteSpace(candidatePrimaryRole)
-                    ? "Unknown"
-                    : candidatePrimaryRole.Trim();
-
-            // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
+    // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
     string prompt = $@"
 Generate interview preparation for this exact job.
 
 LANGUAGE INSTRUCTIONS:
-- Detect the language used to write the JOB DESCRIPTION.
-- Write every question, suggestedAnswer, and howToAnswer in that same language.
-- Do not mix languages unless a technical term, framework name, programming language, product name, or code syntax normally remains in its original form.
-- If the job description is mainly English, generate the interview preparation in English.
-- If the job description is mainly Arabic, generate the interview preparation in Arabic.
-- If the job description is mainly French, generate the interview preparation in French.
-- Determine the language using the JOB DESCRIPTION only, not the job title, company name, candidate role, or candidate skills.
-- Keep all JSON property names exactly as shown below in English. Translate only the text values.
+- Detect the dominant natural language used in the JOB DESCRIPTION.
+- Use the JOB DESCRIPTION as the only source for language detection.
+- Do not determine the output language from the job title, company name, country, city, candidate CV, candidate role, or candidate skills.
+- Write every question, suggestedAnswer, and howToAnswer in the detected dominant language.
+- If the job description contains more than one language, use the language that represents most of the meaningful descriptive content.
+- Ignore isolated technical terms, framework names, programming languages, product names, company names, abbreviations, URLs, and code when detecting the dominant language.
+- Keep technical terms in their commonly used original form when translating them would be unnatural.
+- If the job description is empty, too short, or its dominant language cannot be identified reliably, use English.
+- Keep all JSON property names exactly as shown below in English.
+- Translate only the JSON text values.
 
 Return JSON only in this exact format:
 {{
@@ -550,15 +544,16 @@ Return JSON only in this exact format:
 REQUIREMENTS:
 - Return exactly 5 theoretical questions.
 - Return exactly 5 practical questions.
-- Theoretical questions must test concepts, reasoning, architecture, tools, or domain knowledge required by the job.
+- Base every question and answer only on the supplied job title and job description.
+- Every question must be strongly connected to the responsibilities, qualifications, tools, technologies, and domain knowledge stated or clearly implied by the job description.
+- Do not use or assume any candidate CV, skills, experience, projects, achievements, education, or personal background.
+- Do not invent job requirements that are not present or clearly implied in the job description.
+- Theoretical questions must test concepts, reasoning, architecture, tools, processes, or domain knowledge required by the job.
 - Practical questions must use coding exercises, debugging tasks, system-design scenarios, case studies, calculations, demonstrations, or realistic job tasks depending on the role.
 - Do not force coding questions for a non-technical role.
-- Every question must be strongly connected to the supplied job description.
-- Adapt the difficulty to the seniority and responsibilities shown in the job description.
-- Use the candidate role and confirmed skills only to make the preparation more relevant.
-- Do not invent candidate experience, responsibilities, projects, achievements, or skills.
+- Adapt the difficulty to the seniority, responsibilities, and expectations shown in the job description.
 - suggestedAnswer must provide a strong but concise example answer or solution.
-- howToAnswer must explain the structure, key points, and reasoning the applicant should use.
+- howToAnswer must explain the structure, key points, and reasoning an applicant should use.
 - Answers must teach the applicant and must not be limited to one-line responses.
 - Practical solutions may include pseudocode or short code when appropriate.
 - Keep each suggestedAnswer under 180 words.
@@ -576,40 +571,37 @@ REQUIREMENTS:
 - Never return markdown fences, notes, commentary, headings outside the JSON, or extra text.
 - Return valid JSON only.
 
-JOB:
-{jobTitle} at {companyName}
+JOB TITLE:
+{jobTitle}
+
+COMPANY:
+{companyName}
 
 JOB DESCRIPTION:
-{preparedJobDescription}
+{preparedJobDescription}";
 
-CANDIDATE PRIMARY ROLE:
-{preparedCandidateRole}
+    // Sends one request to the existing OpenAI Responses API helper.
+    string outputText =
+        await SendPromptToOpenAIAsync(prompt);
 
-CONFIRMED CANDIDATE SKILLS:
-{candidateSkillsText}";
+    // Converts the returned JSON into the interview-question DTO.
+    AIInterviewQuestionsResult? result =
+        JsonSerializer.Deserialize<AIInterviewQuestionsResult>(
+            outputText,
+            JsonOptions
+        );
 
-            // Sends one request to the existing OpenAI Responses API helper.
-            string outputText =
-                await SendPromptToOpenAIAsync(prompt);
+    // Rejects an invalid or empty OpenAI result.
+    if (result == null)
+    {
+        throw new Exception(
+            "OpenAI returned invalid interview-question JSON."
+        );
+    }
 
-            // Converts the returned JSON into the interview-question DTO.
-            AIInterviewQuestionsResult? result =
-                JsonSerializer.Deserialize<AIInterviewQuestionsResult>(
-                    outputText,
-                    JsonOptions
-                );
-
-            // Rejects an invalid or empty OpenAI result.
-            if (result == null)
-            {
-                throw new Exception(
-                    "OpenAI returned invalid interview-question JSON."
-                );
-            }
-
-            // Returns the structured result to GeneratedInterviewQuestionsService.
-            return result;
-        }
+    // Returns the structured result to GeneratedInterviewQuestionsService.
+    return result;
+}
         /// <summary>
         /// Classifies multiple jobs in one OpenAI request.
         ///
