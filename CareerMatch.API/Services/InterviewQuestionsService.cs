@@ -332,9 +332,11 @@ namespace CareerMatch.API.Services
                     page.Margin(40);
 
                     // Sets default typography.
-                    page.DefaultTextStyle(style =>
-                        style.FontSize(10)
-                             .LineHeight(1.3f)
+                  page.DefaultTextStyle(style =>
+                        style
+                            .FontFamily("Noto Sans Arabic")
+                            .FontSize(10)
+                            .LineHeight(1.3f)
                     );
 
                     // Adds the repeated header.

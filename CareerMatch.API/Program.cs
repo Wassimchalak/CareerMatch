@@ -3,6 +3,7 @@ using CareerMatch.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using QuestPDF.Drawing;
 using QuestPDF.Infrastructure;
 using Resend;
 using System.Text;
@@ -186,6 +187,64 @@ builder.Services.AddAuthorization();
 // QuestPDF
 //
 QuestPDF.Settings.License = LicenseType.Community;
+
+// Use only the fonts bundled with the application.
+// This avoids differences between Windows and the Render Linux container.
+QuestPDF.Settings.UseEnvironmentFonts = false;
+
+// Throw an error if a character cannot be rendered.
+QuestPDF.Settings.CheckIfAllTextGlyphsAreAvailable = true;
+
+string fontsPath =
+    Path.Combine(
+        builder.Environment.ContentRootPath,
+        "Resources",
+        "Fonts"
+    );
+
+string regularFontPath =
+    Path.Combine(
+        fontsPath,
+        "NotoSansArabic-Regular.ttf"
+    );
+
+string boldFontPath =
+    Path.Combine(
+        fontsPath,
+        "NotoSansArabic-Bold.ttf"
+    );
+
+if (!File.Exists(regularFontPath))
+{
+    throw new FileNotFoundException(
+        "NotoSansArabic-Regular.ttf was not found.",
+        regularFontPath
+    );
+}
+
+if (!File.Exists(boldFontPath))
+{
+    throw new FileNotFoundException(
+        "NotoSansArabic-Bold.ttf was not found.",
+        boldFontPath
+    );
+}
+
+using (FileStream regularFontStream =
+       File.OpenRead(regularFontPath))
+{
+    FontManager.RegisterFont(
+        regularFontStream
+    );
+}
+
+using (FileStream boldFontStream =
+       File.OpenRead(boldFontPath))
+{
+    FontManager.RegisterFont(
+        boldFontStream
+    );
+}
 
 //
 // Build application
