@@ -77,39 +77,71 @@ namespace CareerMatch.API.Services
                 await file.CopyToAsync(stream);
             }
 
-            // Extract text from all PDF pages.
-            string extractedText =
-                ExtractTextFromPdf(filePath);
+           // Extract text from all PDF pages.
+string extractedText =
+    ExtractTextFromPdf(filePath);
 
-            if (string.IsNullOrWhiteSpace(extractedText))
-            {
-                File.Delete(filePath);
-                return null;
-            }
+// Reject PDFs that contain no extractable text.
+if (string.IsNullOrWhiteSpace(extractedText))
+{
+    File.Delete(filePath);
 
-            // Generate a stable SHA-256 hash from normalized CV text.
-            // MatchingService later uses this value to validate cache entries.
-            string cvTextHash =
-                CreateTextHash(extractedText);
+    throw new InvalidOperationException(
+        "Please upload a valid CV."
+    );
+}
 
-            // Extract the primary role and skills using OpenAI.
-            var aiResult =
-                await _aiService.ExtractSkillsAsync(
-                    extractedText
-                );
+// Generate a stable SHA-256 hash from normalized CV text.
+// MatchingService later uses this value to validate cache entries.
+string cvTextHash =
+    CreateTextHash(extractedText);
 
-            // Build the CV database model.
-            var cv = new CV
-            {
-                UserId = userId,
-                OriginalFileName = file.FileName,
-                StoredFileName = storedFileName,
-                FilePath = filePath,
-                ExtractedText = extractedText,
-                PrimaryRole = aiResult.PrimaryRole,
-                CVTextHash = cvTextHash,
-                UploadedAt = DateTime.Now
-            };
+// Ask OpenAI to verify that the uploaded document is a CV
+// and extract its primary role and skills.
+var aiResult =
+    await _aiService.ExtractSkillsAsync(
+        extractedText
+    );
+
+// Validate the result returned by OpenAI.
+bool hasPrimaryRole =
+    !string.IsNullOrWhiteSpace(
+        aiResult?.PrimaryRole
+    );
+
+bool hasSkills =
+    aiResult?.Skills != null &&
+    aiResult.Skills.Any(skill =>
+        !string.IsNullOrWhiteSpace(
+            skill.SkillName
+        )
+    );
+
+// Reject documents that OpenAI did not recognize as valid CVs.
+if (!hasPrimaryRole && !hasSkills)
+{
+    if (File.Exists(filePath))
+    {
+        File.Delete(filePath);
+    }
+
+    throw new InvalidOperationException(
+        "Please upload a valid CV."
+    );
+}
+
+// Build the CV database model.
+var cv = new CV
+{
+    UserId = userId,
+    OriginalFileName = file.FileName,
+    StoredFileName = storedFileName,
+    FilePath = filePath,
+    ExtractedText = extractedText,
+    PrimaryRole = aiResult!.PrimaryRole,
+    CVTextHash = cvTextHash,
+    UploadedAt = DateTime.Now
+};
 
             using var connection =
                 _dbConnectionFactory.CreateConnection();

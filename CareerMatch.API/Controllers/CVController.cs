@@ -23,22 +23,29 @@ namespace CareerMatch.API.Controllers
         public async Task<IActionResult> UploadCV(
             [FromForm] CVUploadRequest request)
         {
-            int userId = GetAuthenticatedUserId();
-
-            var result =
-                await _cvService.UploadCVAsync(
-                    userId,
-                    request.File
-                );
-
-            if (result == null)
+            try
             {
-                return BadRequest(
-                    "Invalid file. Please upload a valid PDF."
-                );
-            }
+                int userId = GetAuthenticatedUserId();
 
-            return Ok(result);
+                var result =
+                    await _cvService.UploadCVAsync(
+                        userId,
+                        request.File
+                    );
+
+                if (result == null)
+                {
+                    return BadRequest(
+                        "Invalid file. Please upload a valid PDF."
+                    );
+                }
+
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         private int GetAuthenticatedUserId()

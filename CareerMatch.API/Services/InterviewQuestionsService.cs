@@ -68,7 +68,7 @@ namespace CareerMatch.API.Services
                         j.CompanyName,
                         j.Description AS JobDescription
                     FROM JobApplications ja
-                    INNER JOIN CVs cv
+                    LEFT JOIN CVs cv
                         ON ja.CVId = cv.CVId
                     INNER JOIN Jobs j
                         ON ja.JobId = j.JobId
@@ -96,40 +96,51 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Loads candidate skills from the exact application CV.
+            // Candidate CV data is optional for interview-question generation.
+            // When no CV exists, questions are generated from the job itself.
             var candidateSkills =
-                (
-                    await connection.QueryAsync<
-                        InterviewCandidateSkillData>(
-                        @"
-                        SELECT
-                            s.SkillName,
-                            ecs.YearsOfExperience
-                        FROM ExtractedCVSkills ecs
-                        INNER JOIN Skills s
-                            ON ecs.SkillId = s.SkillId
-                        WHERE ecs.CVId = @CVId
-                        ORDER BY s.SkillName;
-                        ",
-                        new
-                        {
-                            // Uses the application CV.
-                            CVId = applicationData.CVId
-                        }
-                    )
-                ).ToList();
+                new List<InterviewCandidateSkillData>();
 
-            // Converts the skill rows into prompt text.
+            if (applicationData.CVId.HasValue)
+            {
+                candidateSkills =
+                    (
+                        await connection.QueryAsync<
+                            InterviewCandidateSkillData>(
+                            @"
+                            SELECT
+                                s.SkillName,
+                                ecs.YearsOfExperience
+                            FROM ExtractedCVSkills ecs
+                            INNER JOIN Skills s
+                                ON ecs.SkillId = s.SkillId
+                            WHERE ecs.CVId = @CVId
+                            ORDER BY s.SkillName;
+                            ",
+                            new
+                            {
+                                CVId = applicationData.CVId.Value
+                            }
+                        )
+                    ).ToList();
+            }
+
             string candidateSkillsText =
-                BuildCandidateSkillsText(
-                    candidateSkills
-                );
+                applicationData.CVId.HasValue
+                    ? BuildCandidateSkillsText(candidateSkills)
+                    : "No CareerMatch CV was uploaded. Base the questions on the job title and description only.";
+
+            string candidatePrimaryRole =
+                string.IsNullOrWhiteSpace(
+                    applicationData.CandidatePrimaryRole)
+                    ? applicationData.JobTitle
+                    : applicationData.CandidatePrimaryRole;
 
             // Generates exactly five theoretical and five practical questions.
             AIInterviewQuestionsResult questions =
                 await _aiService
                     .GenerateInterviewQuestionsAsync(
-                        applicationData.CandidatePrimaryRole,
+                        candidatePrimaryRole,
                         candidateSkillsText,
                         applicationData.JobTitle,
                         applicationData.CompanyName,
@@ -632,7 +643,7 @@ namespace CareerMatch.API.Services
             public int ApplicationId { get; set; }
 
             // Stores the exact CV id.
-            public int CVId { get; set; }
+            public int? CVId { get; set; }
 
             // Stores the candidate primary role.
             public string? CandidatePrimaryRole

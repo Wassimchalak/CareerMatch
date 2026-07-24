@@ -8,58 +8,55 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Adds support for API controllers.
+//
+// Controllers
+//
 builder.Services.AddControllers();
+
+//
+// CORS
+//
+// Local React frontend is allowed now.
+// Later, add your deployed Vercel URL as another origin.
+//
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins(
+                "http://localhost:5173"
+                // Add your Vercel URL later:
+                // "https://your-project.vercel.app"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
-// Generates the built-in OpenAPI document.
+//
+// OpenAPI and Swagger
+//
 builder.Services.AddOpenApi();
-
-// Allows Swagger to discover controller endpoints.
 builder.Services.AddEndpointsApiExplorer();
 
-// Configures Swagger and adds JWT authorization support.
 builder.Services.AddSwaggerGen(options =>
 {
-    // The name used to identify the JWT security scheme.
     const string bearerScheme = "Bearer";
 
-    // Defines how Swagger should accept the JWT.
     options.AddSecurityDefinition(
         bearerScheme,
         new OpenApiSecurityScheme
         {
-            // Explanation shown inside Swagger's Authorize dialog.
             Description =
-                "Enter your JWT token. You only need to paste the token itself.",
-
-            // Name of the HTTP header that carries the token.
+                "Enter your JWT token. Paste only the token itself.",
             Name = "Authorization",
-
-            // Tells Swagger that the token is sent inside a request header.
             In = ParameterLocation.Header,
-
-            // Uses standard HTTP authentication.
             Type = SecuritySchemeType.Http,
-
-            // Uses the Bearer authentication scheme.
             Scheme = "bearer",
-
-            // Indicates that the Bearer value contains a JWT.
             BearerFormat = "JWT"
-        }
-    );
+        });
 
-    // Applies the Bearer authentication scheme to API operations.
     options.AddSecurityRequirement(document =>
         new OpenApiSecurityRequirement
         {
@@ -69,60 +66,40 @@ builder.Services.AddSwaggerGen(options =>
                     document
                 )
             ] = new List<string>()
-        }
-    );
+        });
 });
 
-// Registers the Dapper database connection factory.
+//
+// CareerMatch services
+//
 builder.Services.AddScoped<DbConnectionFactory>();
-
-// Registers the authentication service.
 builder.Services.AddScoped<AuthService>();
-
-// Registers the service responsible for creating JWT tokens.
 builder.Services.AddScoped<JwtService>();
-
-// Registers the service responsible for sending reset-password emails.
 builder.Services.AddScoped<EmailService>();
-
-// Registers the CV upload and extraction service.
 builder.Services.AddScoped<CVService>();
-
-// Registers the OpenAI communication service.
 builder.Services.AddScoped<AIService>();
-
-// Registers the external job search service.
 builder.Services.AddScoped<JobSearchService>();
-
-// Registers the AI matching service.
 builder.Services.AddScoped<MatchingService>();
-
-// Registers the job-application service.
 builder.Services.AddScoped<JobApplicationService>();
-
-// Registers the saved-jobs service.
 builder.Services.AddScoped<SavedJobService>();
-
-// Registers the improved-CV generation service.
 builder.Services.AddScoped<GeneratedCVService>();
-
-// Registers the cover-letter generation service.
 builder.Services.AddScoped<GeneratedCoverLetterService>();
-
-// Registers the interview-question generation service.
 builder.Services.AddScoped<GeneratedInterviewQuestionsService>();
 
-// Registers HttpClient support for OpenAI and JSearch.
+//
+// HttpClient
+//
 builder.Services.AddHttpClient();
 
-// Reads the JWT signing key from configuration.
+//
+// JWT configuration
+//
 string jwtKey =
     builder.Configuration["Jwt:Key"]
     ?? throw new Exception(
         "Jwt:Key is missing from configuration."
     );
 
-// A key shorter than 32 characters should not be used with HMAC SHA-256.
 if (jwtKey.Length < 32)
 {
     throw new Exception(
@@ -130,97 +107,103 @@ if (jwtKey.Length < 32)
     );
 }
 
-// Reads the JWT issuer.
 string jwtIssuer =
     builder.Configuration["Jwt:Issuer"]
     ?? "CareerMatch";
 
-// Reads the JWT audience.
 string jwtAudience =
     builder.Configuration["Jwt:Audience"]
     ?? "CareerMatchUsers";
 
-// Configures JWT authentication.
 builder.Services
     .AddAuthentication(options =>
     {
-        // Uses JWT Bearer authentication when ASP.NET Core tries to authenticate.
         options.DefaultAuthenticateScheme =
             JwtBearerDefaults.AuthenticationScheme;
 
-        // Uses JWT Bearer authentication when access is denied because no token exists.
         options.DefaultChallengeScheme =
             JwtBearerDefaults.AuthenticationScheme;
     })
     .AddJwtBearer(options =>
     {
-        // Defines all rules used to validate incoming JWTs.
         options.TokenValidationParameters =
             new TokenValidationParameters
             {
-                // Confirms that the token was created by CareerMatch.
                 ValidateIssuer = true,
-
-                // Confirms that the token was intended for CareerMatch users.
                 ValidateAudience = true,
-
-                // Rejects expired tokens.
                 ValidateLifetime = true,
-
-                // Confirms that the token signature is valid.
                 ValidateIssuerSigningKey = true,
 
-                // Sets the expected issuer.
                 ValidIssuer = jwtIssuer,
-
-                // Sets the expected audience.
                 ValidAudience = jwtAudience,
 
-                // Uses the configured secret key to validate signatures.
                 IssuerSigningKey =
                     new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtKey)
                     ),
 
-                // Allows only a small difference between server clocks.
                 ClockSkew = TimeSpan.FromSeconds(30)
             };
     });
 
-// Enables the use of [Authorize] attributes.
 builder.Services.AddAuthorization();
 
-// Configures the QuestPDF Community license.
-QuestPDF.Settings.License =
-    LicenseType.Community;
+//
+// QuestPDF
+//
+QuestPDF.Settings.License = LicenseType.Community;
 
+//
+// Build the application
+//
 var app = builder.Build();
 
-// Enables Swagger only during development.
-if (app.Environment.IsDevelopment())
-{
-    // Exposes the built-in OpenAPI document.
-    app.MapOpenApi();
+//
+// OpenAPI and Swagger
+//
+app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI();
 
-    // Exposes the Swagger JSON document.
-    app.UseSwagger();
-
-    // Exposes Swagger UI.
-    app.UseSwaggerUI();
-}
+//
+// CORS must run before authentication and authorization.
+//
 app.UseCors("FrontendPolicy");
-// Redirects HTTP requests to HTTPS.
-app.UseHttpsRedirection();
 
-// Reads and validates JWT tokens.
-// This must appear before UseAuthorization.
+//
+// Render terminates HTTPS before forwarding requests to the container.
+// Keep HTTPS redirection for local development only.
+//
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
+//
+// Authentication and authorization
+//
 app.UseAuthentication();
-
-// Enforces [Authorize] attributes.
 app.UseAuthorization();
 
-// Maps controller routes.
+//
+// Controller endpoints
+//
 app.MapControllers();
 
-// Starts the API.
+//
+// Render health-check endpoint
+//
+app.MapGet("/health", () =>
+{
+    return Results.Ok(new
+    {
+        status = "healthy",
+        service = "CareerMatch.API",
+        timestamp = DateTime.UtcNow
+    });
+});
+
+//
+// Start the application
+//
 app.Run();

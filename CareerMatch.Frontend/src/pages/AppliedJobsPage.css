@@ -1,0 +1,86 @@
+@import "./DashboardPage.css";
+
+.applied-jobs-grid {
+    display: grid;
+    gap: 18px;
+}
+
+.applied-job-card-content {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 20px;
+}
+
+.applied-job-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.applied-job-card-header h2 {
+    margin: 0 0 9px;
+}
+
+.applied-job-location {
+    color: var(--dashboard-muted);
+    font-size: 13px;
+}
+
+.applied-job-score {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 16px;
+    background: rgba(155, 108, 255, 0.055);
+}
+
+.applied-job-score strong {
+    font-size: 30px;
+}
+
+.applied-job-no-score {
+    padding: 18px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 16px;
+    color: var(--dashboard-muted);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.applied-job-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.applied-job-remove-button {
+    border-color: rgba(
+        255,
+        105,
+        135,
+        0.4
+    );
+}
+
+.applied-job-remove-button:hover:not(
+        :disabled
+    ) {
+    border-color: rgba(
+        255,
+        105,
+        135,
+        0.8
+    );
+}
+
+@media (max-width: 640px) {
+    .applied-job-actions
+        .dashboard-primary-button {
+        width: 100%;
+    }
+}

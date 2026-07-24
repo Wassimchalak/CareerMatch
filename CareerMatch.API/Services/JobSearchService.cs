@@ -292,10 +292,35 @@ namespace CareerMatch.API.Services
 
     try
     {
-        // Build a query containing the role, employment type,
+        // Ask OpenAI to convert the user's role into the language
+        // required for job searches in the selected country.
+        string translatedRole =
+            await _aiService.TranslateRoleForCountryAsync(
+                request.Role,
+                request.Country
+            );
+
+        // Create a separate request so the original frontend request
+        // remains unchanged while JSearch receives the translated role.
+        var translatedRequest =
+            new JobSearchRequest
+            {
+                Country = request.Country,
+                City = request.City,
+                Role = translatedRole,
+                WorkType = request.WorkType,
+                EmploymentType = request.EmploymentType
+            };
+
+        // Build a query containing the translated role, employment type,
         // work mode, city, and country when available.
         string query =
-            BuildJSearchQuery(request);
+            BuildJSearchQuery(translatedRequest);
+
+        Console.WriteLine(
+            $"ROLE TRANSLATION: '{request.Role}' -> " +
+            $"'{translatedRole}' for {request.Country}"
+        );
 
         string countryCode =
             GetJSearchCountryCode(
@@ -1187,68 +1212,50 @@ namespace CareerMatch.API.Services
                 return "us";
             }
 
-            return country
-                .Trim()
-                .ToLowerInvariant() switch
-                {
-                    "lebanon" => "lb",
-                    "saudi arabia" => "sa",
-                    "ksa" => "sa",
-                    "united arab emirates" => "ae",
-                    "uae" => "ae",
-                    "qatar" => "qa",
-                    "kuwait" => "kw",
-                    "oman" => "om",
-                    "bahrain" => "bh",
-                    "jordan" => "jo",
-                    "iraq" => "iq",
-                    "egypt" => "eg",
-                    "united states" => "us",
-                    "usa" => "us",
-                    "us" => "us",
-                    "canada" => "ca",
-                    "mexico" => "mx",
-                    "united kingdom" => "gb",
-                    "uk" => "gb",
-                    "england" => "gb",
-                    "great britain" => "gb",
-                    "france" => "fr",
-                    "germany" => "de",
-                    "italy" => "it",
-                    "spain" => "es",
-                    "netherlands" => "nl",
-                    "portugal" => "pt",
-                    "switzerland" => "ch",
-                    "austria" => "at",
-                    "greece" => "gr",
-                    "india" => "in",
-                    "pakistan" => "pk",
-                    "japan" => "jp",
-                    "singapore" => "sg",
-                    "malaysia" => "my",
-                    "indonesia" => "id",
-                    "philippines" => "ph",
-                    "hong kong" => "hk",
-                    "taiwan" => "tw",
-                    "thailand" => "th",
-                    "vietnam" => "vn",
-                    "sri lanka" => "lk",
-                    "south africa" => "za",
-                    "nigeria" => "ng",
-                    "kenya" => "ke",
-                    "ghana" => "gh",
-                    "algeria" => "dz",
-                    "angola" => "ao",
-                    "somalia" => "so",
-                    "brazil" => "br",
-                    "argentina" => "ar",
-                    "chile" => "cl",
-                    "colombia" => "co",
-                    "panama" => "pa",
-                    "australia" => "au",
-                    "new zealand" => "nz",
-                    _ => "us"
-                };
+           return country
+    .Trim()
+    .ToLowerInvariant() switch
+{
+    // Middle East
+    "united arab emirates" => "ae",
+    "uae" => "ae",
+    "saudi arabia" => "sa",
+    "ksa" => "sa",
+    "qatar" => "qa",
+    "kuwait" => "kw",
+    "oman" => "om",
+    "bahrain" => "bh",
+    "lebanon" => "lb",
+    "jordan" => "jo",
+    "iraq" => "iq",
+
+    // Africa
+    "egypt" => "eg",
+    "morocco" => "ma",
+    "tunisia" => "tn",
+    // North America
+    "united states" => "us",
+    "canada" => "ca",
+    "mexico" => "mx",
+
+    // South America
+    "brazil" => "br",
+
+    // Europe
+    "united kingdom" => "gb",
+    "france" => "fr",
+    "italy" => "it",
+    "spain" => "es",
+
+    // Asia
+    "india" => "in",
+    "japan" => "jp",
+
+
+
+
+    _ => "us"
+};
         }
 
         /// <summary>

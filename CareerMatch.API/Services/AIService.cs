@@ -65,9 +65,9 @@ namespace CareerMatch.API.Services
 
             // Keep the prompt short and request only the exact JSON structure needed.
             string prompt = $@"
-Extract the candidate's main role and real skills from this CV.
+Analyze the document and extract the candidate's main role and real skills only if the document is a valid CV or resume.
 
-Return JSON only:
+Return JSON only in this exact format:
 {{
   ""primaryRole"": ""Backend Developer"",
   ""skills"": [
@@ -78,17 +78,29 @@ Return JSON only:
   ]
 }}
 
-Rules:
-- Ignore seniority in primaryRole.
+INVALID DOCUMENT RULE:
+- If the document is not a CV or resume, return exactly:
+{{
+  ""primaryRole"": """",
+  ""skills"": []
+}}
+- Also return the empty result if the document is blank, unreadable, contains unrelated content, or does not include meaningful candidate information such as experience, education, projects, qualifications, or skills.
+- Do not treat invoices, articles, books, assignments, reports, certificates alone, job descriptions, or random text as a CV.
+- Do not guess a role or skills from unrelated content.
+
+VALID CV RULES:
+- Extract the candidate's most likely main professional role.
+- Ignore seniority words such as Junior, Senior, Lead, or Principal in primaryRole.
 - Use common normalized skill names.
 - Keep different technologies separate.
-- Estimate years only when supported; otherwise use 0.
-- Do not invent skills.
-- No markdown or explanation.
+- Extract only real technical or professional skills supported by the CV.
+- Estimate years of experience only when supported by dates, durations, or clear experience context; otherwise use 0.
+- Do not invent skills, experience, roles, employers, education, or qualifications.
+- No markdown, commentary, or explanation.
+- Return valid JSON only.
 
-CV:
+DOCUMENT:
 {cleanedCVText}";
-
             // Send the prompt using the single configured model.
             string outputText =
                 await SendPromptToOpenAIAsync(prompt);
@@ -368,11 +380,21 @@ JOBS:
             string prompt = $@"
 Rewrite this CV for the job while preserving complete factual accuracy.
 
+FIRST:
+- Detect the language of the JOB DESCRIPTION.
+- Generate the ENTIRE rewritten CV in that same language.
+- Do not mix languages.
+- If the job description is in English, write everything in English.
+- If the job description is in Arabic, write everything in Arabic.
+- If the job description is in French, write everything in French.
+
 Rules:
-- Do not add or remove skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
+- Do not add or remove languages,skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
+- Do not invent information.
 - Improve wording, grammar, structure, relevance, and ATS readability.
-- Emphasize only existing relevant qualifications.
-- Use a clean single-column structure with headings and concise bullet points.
+- Emphasize only existing qualifications that are relevant to the job.
+- Use a clean single-column resume structure with clear headings and concise bullet points.
+- Keep professional terminology appropriate for the detected language.
 - No tables, icons, markdown fences, commentary, or placeholders.
 - Return only the complete rewritten CV.
 
@@ -381,8 +403,6 @@ JOB:
 
 JOB DESCRIPTION:
 {preparedJobDescription}
-
-
 
 CANDIDATE SKILLS:
 {cvSkillsText}
@@ -419,17 +439,25 @@ ORIGINAL CV:
                 );
 
             string prompt = $@"
-Write a truthful personalized cover letter.
+Write a truthful, personalized cover letter.
+
+FIRST:
+- Detect the language of the JOB DESCRIPTION.
+- Write the ENTIRE cover letter in that same language.
+- Do not mix languages.
+- If the job description is in English, write everything in English.
+- If the job description is in Arabic, write everything in Arabic.
+- If the job description is in French, write everything in French.
 
 Rules:
 - Use only facts supported by the CV and candidate skills.
-- Do not invent or exaggerate anything.
-- Mention the exact role and company.
-- Connect the strongest real qualifications to the job.
-- Use a professional and confident tone.
-- Keep it between 220 and 300 words.
-- No bullets, markdown, placeholders, or commentary.
-- Return only the letter.
+- Do not invent, exaggerate, or assume any experience, skills, or achievements.
+- Mention the exact job title and company name.
+- Connect the candidate's strongest real qualifications to the job requirements.
+- Use a professional, confident, and natural tone appropriate for the detected language.
+- Keep the letter between 220 and 300 words.
+- Do not use bullet points, markdown, placeholders, or commentary.
+- Return only the complete cover letter.
 
 JOB:
 {jobTitle} at {companyName}
@@ -437,13 +465,11 @@ JOB:
 JOB DESCRIPTION:
 {preparedJobDescription}
 
-
 CANDIDATE SKILLS:
 {candidateSkillsText}
 
 CV:
 {CleanText(candidateCVText)}";
-
             return await SendPromptToOpenAIAsync(prompt);
         }
 
@@ -488,60 +514,79 @@ CV:
                     : candidatePrimaryRole.Trim();
 
             // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
-            string prompt = $@"
-        Generate interview preparation for this exact job.
+    string prompt = $@"
+Generate interview preparation for this exact job.
 
-        Return JSON only in this exact format:
-        {{
-          ""theoreticalQuestions"": [
-            {{
-              ""questionNumber"": 1,
-              ""question"": ""Explain dependency injection in ASP.NET Core."",
-              ""suggestedAnswer"": ""A strong answer explains the purpose, constructor injection, service registration, and service lifetimes."",
-              ""howToAnswer"": ""Define the concept, explain why it improves testability, then give a short ASP.NET Core example.""
-            }}
-          ],
-          ""practicalQuestions"": [
-            {{
-              ""questionNumber"": 6,
-              ""question"": ""Build a Dapper method that retrieves a job by id safely."",
-              ""suggestedAnswer"": ""Use an asynchronous parameterized query and QueryFirstOrDefaultAsync with an anonymous parameter object."",
-              ""howToAnswer"": ""Clarify assumptions, describe the approach, mention SQL injection protection, and explain error handling.""
-            }}
-          ]
-        }}
+LANGUAGE INSTRUCTIONS:
+- Detect the primary language of the JOB DESCRIPTION.
+- Write every question, suggestedAnswer, and howToAnswer in that same language.
+- Do not mix languages unless a technical term, framework name, programming language, product name, or code syntax normally remains in its original form.
+- If the job description is mainly English, generate the interview preparation in English.
+- If the job description is mainly Arabic, generate the interview preparation in Arabic.
+- If the job description is mainly French, generate the interview preparation in French.
+- Determine the language using the JOB DESCRIPTION only, not the job title, company name, candidate role, or candidate skills.
+- Keep all JSON property names exactly as shown below in English. Translate only the text values.
 
-        REQUIREMENTS:
-        - Return exactly 5 theoretical questions.
-        - Return exactly 5 practical questions.
-        - Theoretical questions must test concepts, reasoning, architecture, tools, or domain knowledge required by the job.
-        - Practical questions must use coding exercises, debugging tasks, system-design scenarios, case studies, calculations, demonstrations, or realistic job tasks depending on the role.
-        - Do not force coding questions for a non-technical role.
-        - Every question must be strongly connected to the supplied job description.
-        - Adapt difficulty to the seniority and responsibilities shown in the job.
-        - Use the candidate role and confirmed skills only to make preparation more relevant.
-        - Do not invent candidate experience.
-        - suggestedAnswer must provide a strong but concise example answer or solution.
-        - howToAnswer must explain the structure, key points, and reasoning the applicant should use.
-        - Answers must teach the applicant; do not only provide one-line responses.
-        - Practical solutions may include pseudocode or short code when appropriate.
-        - Keep each suggestedAnswer under 180 words.
-        - Keep each howToAnswer under 90 words.
-        - Use question numbers 1-5 for theoretical questions.
-        - Use question numbers 6-10 for practical questions.
-        - Never return markdown fences, notes, commentary, or extra text.
+Return JSON only in this exact format:
+{{
+  ""theoreticalQuestions"": [
+    {{
+      ""questionNumber"": 1,
+      ""question"": ""Question written in the detected job-description language."",
+      ""suggestedAnswer"": ""Suggested answer written in the detected job-description language."",
+      ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
+    }}
+  ],
+  ""practicalQuestions"": [
+    {{
+      ""questionNumber"": 6,
+      ""question"": ""Practical question written in the detected job-description language."",
+      ""suggestedAnswer"": ""Suggested solution written in the detected job-description language."",
+      ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
+    }}
+  ]
+}}
 
-        JOB:
-        {jobTitle} at {companyName}
+REQUIREMENTS:
+- Return exactly 5 theoretical questions.
+- Return exactly 5 practical questions.
+- Theoretical questions must test concepts, reasoning, architecture, tools, or domain knowledge required by the job.
+- Practical questions must use coding exercises, debugging tasks, system-design scenarios, case studies, calculations, demonstrations, or realistic job tasks depending on the role.
+- Do not force coding questions for a non-technical role.
+- Every question must be strongly connected to the supplied job description.
+- Adapt the difficulty to the seniority and responsibilities shown in the job description.
+- Use the candidate role and confirmed skills only to make the preparation more relevant.
+- Do not invent candidate experience, responsibilities, projects, achievements, or skills.
+- suggestedAnswer must provide a strong but concise example answer or solution.
+- howToAnswer must explain the structure, key points, and reasoning the applicant should use.
+- Answers must teach the applicant and must not be limited to one-line responses.
+- Practical solutions may include pseudocode or short code when appropriate.
+- Keep each suggestedAnswer under 180 words.
+- Keep each howToAnswer under 90 words.
+- Use question numbers 1-5 for theoretical questions.
+- Use question numbers 6-10 for practical questions.
+- Preserve valid JSON escaping when including quotation marks, line breaks, code, or special characters.
+- Never translate or rename these JSON properties:
+  theoreticalQuestions,
+  practicalQuestions,
+  questionNumber,
+  question,
+  suggestedAnswer,
+  howToAnswer.
+- Never return markdown fences, notes, commentary, headings outside the JSON, or extra text.
+- Return valid JSON only.
 
-        JOB DESCRIPTION:
-        {preparedJobDescription}
+JOB:
+{jobTitle} at {companyName}
 
-        CANDIDATE PRIMARY ROLE:
-        {preparedCandidateRole}
+JOB DESCRIPTION:
+{preparedJobDescription}
 
-        CONFIRMED CANDIDATE SKILLS:
-        {candidateSkillsText}";
+CANDIDATE PRIMARY ROLE:
+{preparedCandidateRole}
+
+CONFIRMED CANDIDATE SKILLS:
+{candidateSkillsText}";
 
             // Sends one request to the existing OpenAI Responses API helper.
             string outputText =
@@ -826,7 +871,72 @@ JOBS:
 
             return string.Empty;
         }
+public async Task<string> TranslateRoleForCountryAsync(
+    string role,
+    string country)
+{
+    if (string.IsNullOrWhiteSpace(role))
+    {
+        return role;
+    }
 
+    string prompt = $@"
+Translate the user's job role into the required language for the selected country.
+
+Country and required language mapping:
+
+- Lebanon: English
+- Saudi Arabia: English
+- United Arab Emirates: English
+- Qatar: English
+- Kuwait: English
+- Oman: English
+- Bahrain: English
+- Jordan: English
+- Iraq: English
+- Egypt: English
+- Morocco: French
+- Tunisia: French
+- United States: English
+- Canada: English
+- Mexico: Spanish
+- Brazil: Portuguese
+- United Kingdom: English
+- France: French
+- Italy: Italian
+- Spain: Spanish
+- India: English
+- Japan: Japanese
+
+Selected country:
+{country}
+
+User's job role:
+{role}
+
+Rules:
+- Find the selected country in the mapping above.
+- Translate the role into that country's required language.
+- If the role is already written in the required language, return it unchanged.
+- Preserve technical terms such as .NET, C#, Java, JavaScript, React, SQL, AWS, Azure, DevOps, and Node.js.
+- Return only the final role.
+- Do not return JSON.
+- Do not add quotes.
+- Do not add labels or explanations.
+- Keep the result short and suitable for a job-search query.
+";
+
+    string translatedRole =
+        await SendPromptToOpenAIAsync(prompt);
+
+    translatedRole = translatedRole
+        .Trim()
+        .Trim('"');
+
+    return string.IsNullOrWhiteSpace(translatedRole)
+        ? role
+        : translatedRole;
+}
         /// <summary>
         /// Removes markdown code fences when OpenAI accidentally wraps JSON.
         /// </summary>

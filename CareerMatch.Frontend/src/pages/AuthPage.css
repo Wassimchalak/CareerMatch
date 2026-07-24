@@ -126,7 +126,16 @@
     border-radius: 50%;
     background: #5c85ff;
 }
-
+.auth-error-message {
+    margin: 4px 0 0;
+    padding: 11px 13px;
+    border: 1px solid rgba(255, 100, 130, 0.3);
+    border-radius: 10px;
+    color: #ffb5c2;
+    background: rgba(255, 72, 110, 0.08);
+    font-size: 13px;
+    line-height: 1.5;
+}
 .auth-message p {
     max-width: 470px;
     margin: 0;

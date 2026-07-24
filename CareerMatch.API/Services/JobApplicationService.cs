@@ -26,6 +26,8 @@ namespace CareerMatch.API.Services
                 _dbConnectionFactory
                     .CreateConnection();
 
+            // The latest CV is optional. A user may continue to the external
+            // application page and upload a CV there instead.
             var cv =
                 await connection
                     .QueryFirstOrDefaultAsync<CV>(
@@ -40,16 +42,6 @@ namespace CareerMatch.API.Services
                             UserId = userId
                         }
                     );
-
-            if (cv == null)
-            {
-                return new JobApplicationResponse
-                {
-                    Success = false,
-                    Message =
-                        "You must upload a CV before applying."
-                };
-            }
 
             var job =
                 await connection
@@ -70,10 +62,14 @@ namespace CareerMatch.API.Services
                 return new JobApplicationResponse
                 {
                     Success = false,
-                    Message = "Job not found."
+                    Message = "Job not found.",
+                    HasCV = cv != null
                 };
             }
 
+            // One CareerMatch application is kept per user and job.
+            // This also reuses an application that was originally created
+            // without a CV.
             var existingApplication =
                 await connection
                     .QueryFirstOrDefaultAsync<JobApplication>(
@@ -81,28 +77,46 @@ namespace CareerMatch.API.Services
                         SELECT TOP 1 *
                         FROM JobApplications
                         WHERE UserId = @UserId
-                          AND CVId = @CVId
                           AND JobId = @JobId
                         ORDER BY AppliedAt DESC;
                         ",
                         new
                         {
                             UserId = userId,
-                            CVId = cv.CVId,
                             request.JobId
                         }
                     );
 
             if (existingApplication != null)
             {
+                // If the application was created without a CV but the user
+                // uploaded one later, attach the latest CV now.
+                if (existingApplication.CVId == null &&
+                    cv != null)
+                {
+                    await connection.ExecuteAsync(
+                        @"
+                        UPDATE JobApplications
+                        SET CVId = @CVId
+                        WHERE ApplicationId = @ApplicationId;
+                        ",
+                        new
+                        {
+                            CVId = cv.CVId,
+                            existingApplication.ApplicationId
+                        }
+                    );
+                }
+
                 return new JobApplicationResponse
                 {
                     Success = true,
                     Message =
-                        "You already applied to this job.",
+                        "You already opened this job application.",
                     ApplicationId =
                         existingApplication.ApplicationId,
-                    JobUrl = job.JobUrl
+                    JobUrl = job.JobUrl,
+                    HasCV = cv != null
                 };
             }
 
@@ -134,7 +148,7 @@ namespace CareerMatch.API.Services
                         new
                         {
                             UserId = userId,
-                            CVId = cv.CVId,
+                            CVId = cv?.CVId,
                             request.JobId,
                             ApplicationStatus = "Applied",
                             AppliedAt = appliedAt
@@ -144,10 +158,12 @@ namespace CareerMatch.API.Services
             return new JobApplicationResponse
             {
                 Success = true,
-                Message =
-                    "Application saved successfully.",
+                Message = cv == null
+                    ? "Application opened. You can upload your CV on the job website."
+                    : "Application saved successfully.",
                 ApplicationId = applicationId,
-                JobUrl = job.JobUrl
+                JobUrl = job.JobUrl,
+                HasCV = cv != null
             };
         }
 
@@ -192,6 +208,112 @@ namespace CareerMatch.API.Services
             );
 
     return applications.ToList();
+}
+public async Task<bool> DeleteApplicationAsync(
+    int userId,
+    int applicationId)
+{
+    using var connection =
+        _dbConnectionFactory.CreateConnection();
+
+    connection.Open();
+
+    using var transaction =
+        connection.BeginTransaction();
+
+    try
+    {
+        // Confirm that the application exists and belongs
+        // to the authenticated user.
+        int applicationExists =
+            await connection.ExecuteScalarAsync<int>(
+                @"
+                SELECT COUNT(1)
+                FROM JobApplications
+                WHERE ApplicationId = @ApplicationId
+                  AND UserId = @UserId;
+                ",
+                new
+                {
+                    ApplicationId = applicationId,
+                    UserId = userId
+                },
+                transaction
+            );
+
+        if (applicationExists == 0)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // Delete all generated interview-question records,
+        // if any exist.
+        await connection.ExecuteAsync(
+            @"
+            DELETE FROM GeneratedInterviewQuestions
+            WHERE ApplicationId = @ApplicationId;
+            ",
+            new
+            {
+                ApplicationId = applicationId
+            },
+            transaction
+        );
+
+        // Delete all generated cover-letter records,
+        // if any exist.
+        await connection.ExecuteAsync(
+            @"
+            DELETE FROM GeneratedCoverLetters
+            WHERE ApplicationId = @ApplicationId;
+            ",
+            new
+            {
+                ApplicationId = applicationId
+            },
+            transaction
+        );
+
+        // Delete all generated CV records,
+        // if any exist.
+        await connection.ExecuteAsync(
+            @"
+            DELETE FROM GeneratedCVs
+            WHERE ApplicationId = @ApplicationId;
+            ",
+            new
+            {
+                ApplicationId = applicationId
+            },
+            transaction
+        );
+
+        // Delete the application itself.
+        int deletedRows =
+            await connection.ExecuteAsync(
+                @"
+                DELETE FROM JobApplications
+                WHERE ApplicationId = @ApplicationId
+                  AND UserId = @UserId;
+                ",
+                new
+                {
+                    ApplicationId = applicationId,
+                    UserId = userId
+                },
+                transaction
+            );
+
+        transaction.Commit();
+
+        return deletedRows > 0;
+    }
+    catch
+    {
+        transaction.Rollback();
+        throw;
+    }
 }
     }
 }

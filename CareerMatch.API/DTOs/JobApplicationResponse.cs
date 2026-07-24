@@ -12,5 +12,9 @@ namespace CareerMatch.API.DTOs
         // The external job URL that the frontend should open.
         public string? JobUrl { get; set; }
         public int ApplicationId { get; set; }
+
+        // Tells the frontend whether this application has a CareerMatch CV.
+        // CV refinement and cover-letter generation require this value to be true.
+        public bool HasCV { get; set; }
     }
 }

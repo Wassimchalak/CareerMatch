@@ -1,126 +1,123 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+    useNavigate,
+    useSearchParams,
+} from "react-router-dom";
+import { AxiosError } from "axios";
+import api from "../services/api";
 import "./ResetPasswordPage.css";
 
 function ResetPasswordPage() {
-    // Reads query-string values from the URL.
-    // Example URL:
-    // http://localhost:5173/reset-password?token=abc123
     const [searchParams] = useSearchParams();
 
-    // Used to redirect the user after the password is reset.
     const navigate = useNavigate();
 
-    // Gets the reset token from the URL.
     const token = searchParams.get("token") ?? "";
 
-    // Stores the new password typed by the user.
     const [newPassword, setNewPassword] = useState("");
 
-    // Stores the password confirmation typed by the user.
     const [confirmPassword, setConfirmPassword] = useState("");
 
-    // Controls whether the new-password field is visible.
     const [showNewPassword, setShowNewPassword] = useState(false);
 
-    // Controls whether the confirm-password field is visible.
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] =
+        useState(false);
 
-    // Displays validation or backend error messages.
     const [errorMessage, setErrorMessage] = useState("");
 
-    // Displays a success message after resetting the password.
     const [successMessage, setSuccessMessage] = useState("");
 
-    // Prevents multiple submissions while the request is running.
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    async function handleSubmit(
+        event: FormEvent<HTMLFormElement>
+    ) {
         event.preventDefault();
 
         setErrorMessage("");
         setSuccessMessage("");
 
-        // The reset page cannot work without a token.
         if (!token) {
             setErrorMessage(
                 "The password reset link is missing its token or is invalid."
             );
+
             return;
         }
 
-        // Matches the backend [MinLength(8)] validation.
         if (newPassword.length < 8) {
             setErrorMessage(
                 "Your new password must contain at least 8 characters."
             );
+
             return;
         }
 
-        // Matches the backend [MaxLength(100)] validation.
         if (newPassword.length > 100) {
             setErrorMessage(
                 "Your new password cannot exceed 100 characters."
             );
+
             return;
         }
 
-        // Matches [Compare(nameof(NewPassword))].
         if (newPassword !== confirmPassword) {
             setErrorMessage("The passwords do not match.");
+
             return;
         }
 
         try {
             setIsSubmitting(true);
 
-            const response = await fetch(
-                "https://localhost:7000/api/Auth/reset-password",
+            const response = await api.post(
+                "/Auth/reset-password",
                 {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        token,
-                        newPassword,
-                        confirmPassword,
-                    }),
+                    token,
+                    newPassword,
+                    confirmPassword,
                 }
             );
 
-            if (!response.ok) {
-                let message = "Unable to reset your password.";
-
-                try {
-                    const errorData = await response.json();
-
-                    message =
-                        errorData.message ??
-                        errorData.title ??
-                        message;
-                } catch {
-                    // Keeps the default error message if the response
-                    // does not contain JSON.
-                }
-
-                throw new Error(message);
-            }
-
             setSuccessMessage(
-                "Your password has been reset successfully."
+                typeof response.data === "string"
+                    ? response.data
+                    : "Your password has been reset successfully."
             );
 
             setNewPassword("");
             setConfirmPassword("");
 
-            // Redirects the user to the sign-in page after two seconds.
             window.setTimeout(() => {
                 navigate("/auth");
             }, 2000);
         } catch (error) {
-            if (error instanceof Error) {
-                setErrorMessage(error.message);
+            if (error instanceof AxiosError) {
+                const backendResponse = error.response?.data;
+
+                if (typeof backendResponse === "string") {
+                    setErrorMessage(backendResponse);
+                } else if (
+                    backendResponse &&
+                    typeof backendResponse === "object" &&
+                    "message" in backendResponse
+                ) {
+                    setErrorMessage(
+                        String(backendResponse.message)
+                    );
+                } else if (
+                    backendResponse &&
+                    typeof backendResponse === "object" &&
+                    "title" in backendResponse
+                ) {
+                    setErrorMessage(
+                        String(backendResponse.title)
+                    );
+                } else {
+                    setErrorMessage(
+                        "Unable to reset your password. The link may be invalid or expired."
+                    );
+                }
             } else {
                 setErrorMessage(
                     "An unexpected error occurred. Please try again."
@@ -135,7 +132,9 @@ function ResetPasswordPage() {
         <main className="reset-password-page">
             <section className="reset-password-presentation">
                 <div className="reset-password-logo">
-                    <div className="reset-password-logo-symbol">CM</div>
+                    <div className="reset-password-logo-symbol">
+                        CM
+                    </div>
 
                     <div className="reset-password-logo-name">
                         Career<span>Match</span>
@@ -158,18 +157,23 @@ function ResetPasswordPage() {
                     </div>
 
                     <p className="reset-password-description">
-                        Choose a strong password that you have not previously
-                        used for your CareerMatch account.
+                        Choose a strong password that you have not
+                        previously used for your CareerMatch account.
                     </p>
                 </div>
 
-                <div className="reset-password-portal" aria-hidden="true">
+                <div
+                    className="reset-password-portal"
+                    aria-hidden="true"
+                >
                     <div className="reset-password-portal-glow" />
 
                     <div className="reset-password-lock">
                         <div className="reset-password-lock-hook" />
+
                         <div className="reset-password-lock-body">
                             <span>CM</span>
+
                             <div className="reset-password-keyhole" />
                         </div>
                     </div>
@@ -181,13 +185,16 @@ function ResetPasswordPage() {
                     <header className="reset-password-card-heading">
                         <div className="reset-password-card-icon">
                             <div className="reset-password-card-lock-hook" />
+
                             <div className="reset-password-card-lock-body" />
                         </div>
 
                         <div>
                             <h2>Reset password</h2>
+
                             <p>
-                                Enter and confirm your new account password.
+                                Enter and confirm your new account
+                                password.
                             </p>
                         </div>
                     </header>
@@ -218,7 +225,9 @@ function ResetPasswordPage() {
                                     }
                                     value={newPassword}
                                     onChange={(event) =>
-                                        setNewPassword(event.target.value)
+                                        setNewPassword(
+                                            event.target.value
+                                        )
                                     }
                                     placeholder="Enter your new password"
                                     minLength={8}

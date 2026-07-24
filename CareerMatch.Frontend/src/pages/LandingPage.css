@@ -1,0 +1,263 @@
+.dashboard-page {
+    min-height: 100vh;
+    padding: 32px 6%;
+    color: white;
+    background:
+        radial-gradient(
+            circle at 75% 25%,
+            rgba(236, 72, 153, 0.28),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 20% 80%,
+            rgba(124, 58, 237, 0.3),
+            transparent 28%
+        ),
+        linear-gradient(135deg, #07051c 0%, #160934 45%, #24105a 100%);
+}
+
+.dashboard-header {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.dashboard-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-symbol {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ff3cac, #784ba0, #2b86c5);
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
+}
+
+.logo-name {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.hero-section {
+    width: 100%;
+    max-width: 1650px;
+    margin: 70px auto 0;
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    align-items: center;
+    gap: 50px;
+}
+
+.hero-content {
+    max-width: 650px;
+}
+
+.hero-title {
+    margin: 0;
+    font-size: clamp(3rem, 6vw, 6.5rem);
+    line-height: 0.98;
+    letter-spacing: -4px;
+}
+
+.hero-title span {
+    display: block;
+    margin-top: 16px;
+    background: linear-gradient(90deg, #ff3cac, #8b5cf6, #5b7cfa);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.hero-description {
+    max-width: 600px;
+    margin: 32px 0;
+    font-size: 1.35rem;
+    line-height: 1.7;
+    color: #d9d3f0;
+}
+
+.get-started-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 32px;
+    padding: 18px 20px 18px 34px;
+    border-radius: 18px;
+    color: white;
+    text-decoration: none;
+    font-size: 1.35rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #ff3cac, #7b4dff);
+    box-shadow: 0 18px 45px rgba(185, 63, 255, 0.35);
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.get-started-button:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 55px rgba(185, 63, 255, 0.48);
+}
+
+.button-arrow {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.hero-visual {
+    min-height: 540px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 40px;
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(255, 60, 172, 0.35),
+            transparent 55%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.09),
+            rgba(255, 255, 255, 0.02)
+        );
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.hero-visual-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 540px;
+    object-fit: cover;
+    object-position: 67% center;
+}
+
+.features-section {
+    width: 100%;
+    max-width: 1500px;
+    margin: 80px auto 0;
+}
+
+.features-title {
+    margin-bottom: 32px;
+    text-align: center;
+    font-size: 2rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 18px;
+}
+
+.feature-card {
+    padding: 28px 22px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(16px);
+    transition:
+        transform 0.25s ease,
+        background 0.25s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.feature-icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    margin-bottom: 22px;
+    border-radius: 50%;
+    font-size: 1.7rem;
+    background: linear-gradient(135deg, #ff3cac, #6f52ff);
+}
+
+.feature-card h3 {
+    margin: 0 0 12px;
+    font-size: 1.05rem;
+}
+
+.feature-card p {
+    margin: 0;
+    color: #cfc7e9;
+    line-height: 1.6;
+}
+
+@media (max-width: 1150px) {
+    .hero-section {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-content {
+        max-width: 800px;
+    }
+
+    .features-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .dashboard-page {
+        padding: 24px 20px 40px;
+    }
+
+    .logo-symbol {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+    }
+
+    .logo-name {
+        font-size: 1.5rem;
+    }
+
+    .hero-section {
+        margin-top: 50px;
+        gap: 40px;
+    }
+
+    .hero-title {
+        font-size: 3.4rem;
+        letter-spacing: -2px;
+    }
+
+    .hero-description {
+        font-size: 1.05rem;
+    }
+
+    .get-started-button {
+        width: 100%;
+        justify-content: space-between;
+        box-sizing: border-box;
+    }
+
+    .hero-visual {
+        min-height: 320px;
+         transform: translateX(70px);
+    }
+
+    .hero-visual-image {
+        min-height: 320px;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+}

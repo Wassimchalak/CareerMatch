@@ -57,100 +57,71 @@ namespace CareerMatch.API.Services
                 _dbConnectionFactory.CreateConnection();
 
             /*
-             * Load the latest CV that has at least one extracted skill.
-             *
-             * This is important because the user's latest CV row may exist,
-             * but its skill extraction may have failed or not completed.
-             * Using that CV would send an empty skills array to OpenAI,
-             * which would cause every score to be 0.
-             */
-            var cv =
-                await connection.QueryFirstOrDefaultAsync<CV>(
-                    @"
-                    SELECT TOP 1
-                        cv.CVId,
-                        cv.UserId,
-                        cv.PrimaryRole,
-                        cv.CVTextHash,
-                        cv.UploadedAt
-                    FROM CVs cv
-                    WHERE cv.UserId = @UserId
-                      AND EXISTS
-                      (
-                          SELECT 1
-                          FROM ExtractedCVSkills ecvs
-                          WHERE ecvs.CVId = cv.CVId
-                      )
-                    ORDER BY cv.UploadedAt DESC;
-                    ",
-                    new
-                    {
-                        UserId = userId
-                    }
-                );
+ * Load the user's latest uploaded CV.
+ *
+ * Do not filter by extracted skills here.
+ * We first need to distinguish between:
+ * 1. No CV uploaded.
+ * 2. CV uploaded, but skill extraction failed.
+ */
+var cv =
+    await connection.QueryFirstOrDefaultAsync<CV>(
+        @"
+        SELECT TOP 1
+            CVId,
+            UserId,
+            PrimaryRole,
+            CVTextHash,
+            UploadedAt
+        FROM CVs
+        WHERE UserId = @UserId
+        ORDER BY UploadedAt DESC;
+        ",
+        new
+        {
+            UserId = userId
+        }
+    );
 
-            // No CV with extracted skills was found.
-            if (cv == null)
+// No CV has been uploaded for this user.
+if (cv == null)
+{
+    throw new InvalidOperationException(
+        "Please upload your CV before calculating your job match."
+    );
+}
+
+// Load the skills extracted from the latest uploaded CV.
+var cvSkills =
+    (
+        await connection.QueryAsync<AIExtractedSkill>(
+            @"
+            SELECT
+                s.SkillName,
+                ecvs.YearsOfExperience
+            FROM ExtractedCVSkills ecvs
+            INNER JOIN Skills s
+                ON ecvs.SkillId = s.SkillId
+            WHERE ecvs.CVId = @CVId
+            ORDER BY
+                ecvs.YearsOfExperience DESC,
+                s.SkillName;
+            ",
+            new
             {
-                foreach (var job in jobs)
-                {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore = 0,
-                            MatchExplanation =
-                                "No CV with extracted skills was found.",
-                            Recommendation =
-                                "Upload the CV again and make sure skill extraction completes successfully."
-                        };
-                }
-
-                return result;
+                CVId = cv.CVId
             }
+        )
+    ).ToList();
 
-            // Load the skills extracted from the selected CV.
-            var cvSkills =
-                (
-                    await connection.QueryAsync<AIExtractedSkill>(
-                        @"
-                        SELECT
-                            s.SkillName,
-                            ecvs.YearsOfExperience
-                        FROM ExtractedCVSkills ecvs
-                        INNER JOIN Skills s
-                            ON ecvs.SkillId = s.SkillId
-                        WHERE ecvs.CVId = @CVId
-                        ORDER BY
-                            ecvs.YearsOfExperience DESC,
-                            s.SkillName;
-                        ",
-                        new
-                        {
-                            CVId = cv.CVId
-                        }
-                    )
-                ).ToList();
-
-            // Extra safety check.
-            if (cvSkills.Count == 0)
-            {
-                foreach (var job in jobs)
-                {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore = 0,
-                            MatchExplanation =
-                                "The selected CV has no extracted skills.",
-                            Recommendation =
-                                "Upload the CV again so its skills can be extracted."
-                        };
-                }
-
-                return result;
-            }
+// A CV exists, but its skills were not extracted successfully.
+if (cvSkills.Count == 0)
+{
+    throw new InvalidOperationException(
+        "Your CV could not be analyzed. Please upload it again."
+    );
+}
+            
 
             // Get unique job IDs for loading cached results.
             var jobIds = jobs

@@ -11,14 +11,12 @@ namespace CareerMatch.API.Controllers
     [Route("api/[controller]")]
     public class SavedJobController : ControllerBase
     {
-        private readonly SavedJobService
-            _savedJobService;
+        private readonly SavedJobService _savedJobService;
 
         public SavedJobController(
             SavedJobService savedJobService)
         {
-            _savedJobService =
-                savedJobService;
+            _savedJobService = savedJobService;
         }
 
         [HttpPost("save")]
@@ -27,77 +25,85 @@ namespace CareerMatch.API.Controllers
         {
             if (request.JobId <= 0)
             {
-                return BadRequest(
-                    "JobId is required."
-                );
+                return BadRequest("JobId is required.");
             }
 
             int userId = GetAuthenticatedUserId();
 
             bool saved =
-                await _savedJobService
-                    .SaveJobAsync(
-                        userId,
-                        request
-                    );
+                await _savedJobService.SaveJobAsync(
+                    userId,
+                    request
+                );
 
             if (!saved)
             {
-                return NotFound(
-                    "Job not found."
-                );
+                return NotFound("Job not found.");
             }
 
-            return Ok(
-                "Job saved successfully."
-            );
+            return Ok("Job saved successfully.");
         }
 
         [HttpGet("mine")]
-        public async Task<IActionResult>
-            GetSavedJobs()
+        public async Task<IActionResult> GetSavedJobs()
         {
             int userId = GetAuthenticatedUserId();
 
             var savedJobs =
-                await _savedJobService
-                    .GetSavedJobsAsync(
-                        userId
-                    );
+                await _savedJobService.GetSavedJobsAsync(userId);
 
             return Ok(savedJobs);
         }
 
-        [HttpDelete("{jobId}")]
-        public async Task<IActionResult>
-            UnsaveJob(int jobId)
+        [HttpPost("{jobId}/calculate-score")]
+        public async Task<IActionResult> CalculateSavedJobScore(
+            int jobId)
         {
             if (jobId <= 0)
             {
-                return BadRequest(
-                    "JobId is required."
+                return BadRequest("JobId is required.");
+            }
+
+            int userId = GetAuthenticatedUserId();
+
+            var result =
+                await _savedJobService.CalculateSavedJobScoreAsync(
+                    userId,
+                    jobId
                 );
+
+            if (result == null)
+            {
+                return NotFound(
+                    "Saved job was not found or its score could not be calculated."
+                );
+            }
+
+            return Ok(result);
+        }
+
+        [HttpDelete("{jobId}")]
+        public async Task<IActionResult> UnsaveJob(int jobId)
+        {
+            if (jobId <= 0)
+            {
+                return BadRequest("JobId is required.");
             }
 
             int userId = GetAuthenticatedUserId();
 
             bool removed =
-                await _savedJobService
-                    .UnsaveJobAsync(
-                        userId,
-                        jobId
-                    );
+                await _savedJobService.UnsaveJobAsync(
+                    userId,
+                    jobId
+                );
 
             if (!removed)
             {
-                return NotFound(
-                    "Saved job not found."
-                );
+                return NotFound("Saved job not found.");
             }
 
-            return Ok(
-                "Job removed from saved jobs."
-            );
+            return Ok("Job removed from saved jobs.");
         }
 
         private int GetAuthenticatedUserId()

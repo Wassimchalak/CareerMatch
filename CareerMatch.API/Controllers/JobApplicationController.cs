@@ -32,7 +32,8 @@ namespace CareerMatch.API.Controllers
                 );
             }
 
-            int userId = GetAuthenticatedUserId();
+            int userId =
+                GetAuthenticatedUserId();
 
             var result =
                 await _jobApplicationService
@@ -49,12 +50,12 @@ namespace CareerMatch.API.Controllers
             return Ok(result);
         }
 
-        // The route no longer exposes another user's id.
         [HttpGet("mine")]
         public async Task<IActionResult>
             GetMyApplications()
         {
-            int userId = GetAuthenticatedUserId();
+            int userId =
+                GetAuthenticatedUserId();
 
             var applications =
                 await _jobApplicationService
@@ -65,6 +66,54 @@ namespace CareerMatch.API.Controllers
             return Ok(applications);
         }
 
+        // This method must be inside JobApplicationController.
+        [HttpDelete("{applicationId:int}")]
+        public async Task<IActionResult>
+            DeleteApplication(
+                int applicationId)
+        {
+            if (applicationId <= 0)
+            {
+                return BadRequest(
+                    new
+                    {
+                        message =
+                            "ApplicationId is required."
+                    }
+                );
+            }
+
+            int userId =
+                GetAuthenticatedUserId();
+
+            bool deleted =
+                await _jobApplicationService
+                    .DeleteApplicationAsync(
+                        userId,
+                        applicationId
+                    );
+
+            if (!deleted)
+            {
+                return NotFound(
+                    new
+                    {
+                        message =
+                            "Application not found."
+                    }
+                );
+            }
+
+            return Ok(
+                new
+                {
+                    success = true,
+                    message =
+                        "Application removed successfully."
+                }
+            );
+        }
+
         private int GetAuthenticatedUserId()
         {
             string? value =
@@ -72,7 +121,10 @@ namespace CareerMatch.API.Controllers
                     ClaimTypes.NameIdentifier
                 );
 
-            if (!int.TryParse(value, out int userId))
+            if (!int.TryParse(
+                    value,
+                    out int userId
+                ))
             {
                 throw new UnauthorizedAccessException(
                     "Authenticated UserId is missing."

@@ -1,57 +1,283 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 import "./AuthPage.css";
 
 type AuthMode = "signin" | "signup";
+interface AuthResponse {
+    token?: string;
+    userId?: number;
+    fullName?: string;
+    email?: string;
+    expiresAt?: string;
+}
 
+interface TokenPayload {
+    name?: string;
+    fullName?: string;
+    email?: string;
+
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"?:
+        string;
+
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"?:
+        string;
+}
+
+function readTokenPayload(
+    token: string
+): TokenPayload | null {
+    try {
+        const tokenParts = token.split(".");
+
+        if (tokenParts.length < 2) {
+            return null;
+        }
+
+        const payload = tokenParts[1]
+            .replace(/-/g, "+")
+            .replace(/_/g, "/");
+
+        const paddedPayload = payload.padEnd(
+            Math.ceil(payload.length / 4) * 4,
+            "="
+        );
+
+        return JSON.parse(
+            decodeURIComponent(
+                Array.from(
+                    atob(paddedPayload)
+                )
+                    .map(
+                        (character) =>
+                            `%${character
+                                .charCodeAt(0)
+                                .toString(16)
+                                .padStart(2, "0")}`
+                    )
+                    .join("")
+            )
+        ) as TokenPayload;
+    } catch {
+        return null;
+    }
+}
+
+function saveAuthenticationData(
+    responseData: AuthResponse,
+    enteredEmail: string,
+    enteredFullName?: string
+) {
+    const token =
+        responseData.token || "";
+
+    const tokenPayload = token
+        ? readTokenPayload(token)
+        : null;
+
+    const resolvedFullName =
+        responseData.fullName ||
+        enteredFullName ||
+        tokenPayload?.fullName ||
+        tokenPayload?.name ||
+        tokenPayload?.[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+        ] ||
+        "";
+
+    const resolvedEmail =
+        responseData.email ||
+        tokenPayload?.email ||
+        tokenPayload?.[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+        ] ||
+        enteredEmail;
+
+    if (token) {
+        localStorage.setItem(
+            "token",
+            token
+        );
+    }
+
+    if (responseData.userId !== undefined) {
+        localStorage.setItem(
+            "userId",
+            responseData.userId.toString()
+        );
+    }
+
+    if (resolvedFullName) {
+        localStorage.setItem(
+            "fullName",
+            resolvedFullName
+        );
+    }
+
+    if (resolvedEmail) {
+        localStorage.setItem(
+            "email",
+            resolvedEmail
+        );
+    }
+
+    if (responseData.expiresAt) {
+        localStorage.setItem(
+            "expiresAt",
+            responseData.expiresAt
+        );
+    }
+}
 function AuthPage() {
-    const [authMode, setAuthMode] = useState<AuthMode>("signin");
+    const navigate = useNavigate();
 
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
+    const [authMode, setAuthMode] =
+        useState<AuthMode>("signin");
 
-    const isSignUp = authMode === "signup";
+    const [fullName, setFullName] =
+        useState("");
 
-    function switchAuthMode(mode: AuthMode) {
+    const [email, setEmail] =
+        useState("");
+
+    const [password, setPassword] =
+        useState("");
+
+    const [showPassword, setShowPassword] =
+        useState(false);
+
+    const [rememberMe, setRememberMe] =
+        useState(false);
+
+    const [isSubmitting, setIsSubmitting] =
+        useState(false);
+
+    const [errorMessage, setErrorMessage] =
+        useState("");
+
+    const isSignUp =
+        authMode === "signup";
+
+    function switchAuthMode(
+        mode: AuthMode
+    ) {
         setAuthMode(mode);
-
         setFullName("");
         setEmail("");
         setPassword("");
         setShowPassword(false);
         setRememberMe(false);
+        setErrorMessage("");
     }
 
-    function handleSubmit(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
+   async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+) {
+    event.preventDefault();
 
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
         if (isSignUp) {
             const signupData = {
-                fullName,
-                email,
+                fullName: fullName.trim(),
+                email: email.trim(),
                 password,
             };
 
-            console.log("Signup data:", signupData);
+            const response =
+                await api.post<AuthResponse>(
+                    "/Auth/register",
+                    signupData
+                );
+
+            saveAuthenticationData(
+                response.data,
+                email.trim(),
+                fullName.trim()
+            );
+
+            navigate("/dashboard");
             return;
         }
 
         const loginData = {
-            email,
+            email: email.trim(),
             password,
-            rememberMe,
         };
 
-        console.log("Login data:", loginData);
+        const response =
+            await api.post<AuthResponse>(
+                "/Auth/login",
+                loginData
+            );
+
+        saveAuthenticationData(
+            response.data,
+            email.trim()
+        );
+
+        navigate("/dashboard");
+    } catch (error: unknown) {
+        console.error(
+            isSignUp
+                ? "Signup failed:"
+                : "Login failed:",
+            error
+        );
+
+        let backendMessage = "";
+
+        if (
+            typeof error === "object" &&
+            error !== null &&
+            "response" in error
+        ) {
+            const responseError = error as {
+                response?: {
+                    data?:
+                        | string
+                        | {
+                              message?: string;
+                          };
+                };
+            };
+
+            const responseData =
+                responseError.response?.data;
+
+            if (typeof responseData === "string") {
+                backendMessage = responseData;
+            } else if (
+                responseData &&
+                typeof responseData.message ===
+                    "string"
+            ) {
+                backendMessage =
+                    responseData.message;
+            }
+        }
+
+        setErrorMessage(
+            backendMessage.trim()
+                ? backendMessage
+                : isSignUp
+                  ? "Account creation failed. Please try again."
+                  : "Login failed. Check your email and password."
+        );
+    } finally {
+        setIsSubmitting(false);
     }
+}
 
     return (
         <main className="auth-page">
             <section className="auth-presentation">
                 <header className="auth-logo">
-                    <span className="auth-logo-symbol">CM</span>
+                    <span className="auth-logo-symbol">
+                        CM
+                    </span>
 
                     <span className="auth-logo-name">
                         Career<span>Match</span>
@@ -82,7 +308,10 @@ function AuthPage() {
 
                     <div className="career-door">
                         <div className="door-inner">
-                            <span className="door-logo">CM</span>
+                            <span className="door-logo">
+                                CM
+                            </span>
+
                             <span className="door-handle" />
                         </div>
                     </div>
@@ -101,9 +330,17 @@ function AuthPage() {
                         <button
                             type="button"
                             className={`auth-tab ${
-                                authMode === "signin" ? "active" : ""
+                                authMode ===
+                                "signin"
+                                    ? "active"
+                                    : ""
                             }`}
-                            onClick={() => switchAuthMode("signin")}
+                            onClick={() =>
+                                switchAuthMode(
+                                    "signin"
+                                )
+                            }
+                            disabled={isSubmitting}
                         >
                             Sign In
                         </button>
@@ -111,9 +348,17 @@ function AuthPage() {
                         <button
                             type="button"
                             className={`auth-tab ${
-                                authMode === "signup" ? "active" : ""
+                                authMode ===
+                                "signup"
+                                    ? "active"
+                                    : ""
                             }`}
-                            onClick={() => switchAuthMode("signup")}
+                            onClick={() =>
+                                switchAuthMode(
+                                    "signup"
+                                )
+                            }
+                            disabled={isSubmitting}
                         >
                             Sign Up
                         </button>
@@ -167,14 +412,23 @@ function AuthPage() {
                                         type="text"
                                         placeholder="Enter your full name"
                                         value={fullName}
-                                        onChange={(event) =>
+                                        onChange={(
+                                            event
+                                        ) =>
                                             setFullName(
-                                                event.target.value,
+                                                event
+                                                    .target
+                                                    .value
                                             )
                                         }
                                         required
-                                        maxLength={100}
+                                        maxLength={
+                                            100
+                                        }
                                         autoComplete="name"
+                                        disabled={
+                                            isSubmitting
+                                        }
                                     />
                                 </div>
                             </div>
@@ -199,12 +453,20 @@ function AuthPage() {
                                     type="email"
                                     placeholder="Enter your email"
                                     value={email}
-                                    onChange={(event) =>
-                                        setEmail(event.target.value)
+                                    onChange={(
+                                        event
+                                    ) =>
+                                        setEmail(
+                                            event.target
+                                                .value
+                                        )
                                     }
                                     required
                                     maxLength={150}
                                     autoComplete="email"
+                                    disabled={
+                                        isSubmitting
+                                    }
                                 />
                             </div>
                         </div>
@@ -232,9 +494,12 @@ function AuthPage() {
                                     }
                                     placeholder="Enter your password"
                                     value={password}
-                                    onChange={(event) =>
+                                    onChange={(
+                                        event
+                                    ) =>
                                         setPassword(
-                                            event.target.value,
+                                            event.target
+                                                .value
                                         )
                                     }
                                     required
@@ -244,6 +509,9 @@ function AuthPage() {
                                             ? "new-password"
                                             : "current-password"
                                     }
+                                    disabled={
+                                        isSubmitting
+                                    }
                                 />
 
                                 <button
@@ -251,8 +519,10 @@ function AuthPage() {
                                     className="password-visibility-button"
                                     onClick={() =>
                                         setShowPassword(
-                                            (currentValue) =>
-                                                !currentValue,
+                                            (
+                                                currentValue
+                                            ) =>
+                                                !currentValue
                                         )
                                     }
                                     aria-label={
@@ -260,8 +530,13 @@ function AuthPage() {
                                             ? "Hide password"
                                             : "Show password"
                                     }
+                                    disabled={
+                                        isSubmitting
+                                    }
                                 >
-                                    {showPassword ? "◉" : "◎"}
+                                    {showPassword
+                                        ? "◉"
+                                        : "◎"}
                                 </button>
                             </div>
                         </div>
@@ -271,37 +546,72 @@ function AuthPage() {
                                 <label className="remember-option">
                                     <input
                                         type="checkbox"
-                                        checked={rememberMe}
-                                        onChange={(event) =>
+                                        checked={
+                                            rememberMe
+                                        }
+                                        onChange={(
+                                            event
+                                        ) =>
                                             setRememberMe(
-                                                event.target.checked,
+                                                event
+                                                    .target
+                                                    .checked
                                             )
+                                        }
+                                        disabled={
+                                            isSubmitting
                                         }
                                     />
 
-                                    <span>Remember me</span>
+                                    <span>
+                                        Remember me
+                                    </span>
                                 </label>
 
                                 <button
                                     type="button"
                                     className="forgot-password-button"
+                                    onClick={() =>
+                                        navigate(
+                                            "/forgot-password"
+                                        )
+                                    }
+                                    disabled={
+                                        isSubmitting
+                                    }
                                 >
                                     Forgot password?
                                 </button>
                             </div>
                         )}
 
+                        {errorMessage && (
+                            <p
+                                className="auth-error-message"
+                                role="alert"
+                            >
+                                {errorMessage}
+                            </p>
+                        )}
+
                         <button
                             type="submit"
                             className="auth-submit-button"
+                            disabled={isSubmitting}
                         >
                             <span>
-                                {isSignUp
-                                    ? "Create Account"
-                                    : "Sign In"}
+                                {isSubmitting
+                                    ? isSignUp
+                                        ? "Creating account..."
+                                        : "Signing in..."
+                                    : isSignUp
+                                      ? "Create Account"
+                                      : "Sign In"}
                             </span>
 
-                            <span className="submit-arrow">→</span>
+                            <span className="submit-arrow">
+                                →
+                            </span>
                         </button>
                     </form>
 
@@ -322,11 +632,14 @@ function AuthPage() {
                                 switchAuthMode(
                                     isSignUp
                                         ? "signin"
-                                        : "signup",
+                                        : "signup"
                                 )
                             }
+                            disabled={isSubmitting}
                         >
-                            {isSignUp ? "Sign in" : "Sign up"}
+                            {isSignUp
+                                ? "Sign in"
+                                : "Sign up"}
                         </button>
                     </p>
                 </div>
