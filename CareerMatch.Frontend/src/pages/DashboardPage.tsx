@@ -448,11 +448,6 @@ function DashboardPage() {
     const [errorMessage, setErrorMessage] =
         useState("");
 useEffect(() => {
-    if (jobs.length > 0) {
-        loadSavedJobs();
-    }
-}, []);        
-useEffect(() => {
     if (!searchingJobs) {
         setLoadingMessageIndex(0);
         return;
