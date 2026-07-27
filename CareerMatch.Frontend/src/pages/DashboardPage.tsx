@@ -1174,7 +1174,11 @@ SetStateAction<Set<number>>
                     }
                 );
 
-            await loadAppliedJobs();
+            updateIdSet(
+                setAppliedJobIds,
+                job.jobId,
+                true
+            );
 
             const destinationUrl =
                 response.data.jobUrl ||
