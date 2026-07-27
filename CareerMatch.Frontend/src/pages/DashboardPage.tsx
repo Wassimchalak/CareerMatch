@@ -6,7 +6,11 @@ import type {
     Dispatch,
     SetStateAction,
 } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import {
+    NavLink,
+    useNavigate,
+    useLocation,
+} from "react-router-dom";
 import axios from "axios";
 import api from "../services/api";
 import "./DashboardPage.css";
@@ -362,6 +366,7 @@ const readStoredRevealedMatchJobIds = () => {
 
 function DashboardPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
     const [cvUploadMessageIndex, setCvUploadMessageIndex] =
         useState(0);
@@ -604,6 +609,29 @@ SetStateAction<Set<number>>
             return updatedIds;
         });
     };
+
+    const loadSavedJobs = async () => {
+        try {
+            const response =
+                await api.get<SavedJobResponse[]>(
+                    "/SavedJob/mine"
+                );
+
+            setSavedJobIds(
+                new Set(
+                    response.data.map(
+                        job => job.jobId
+                    )
+                )
+            );
+        } catch {
+            setSavedJobIds(new Set());
+        }
+    };
+
+    useEffect(() => {
+        void loadSavedJobs();
+    }, [location.pathname]);
 
     const normalizeJobsResponse = (
         responseData: unknown
@@ -905,33 +933,7 @@ SetStateAction<Set<number>>
                 JSON.stringify(returnedJobs)
             );
 
-            /*
-                Load the user's already-saved jobs so every card
-                starts with the correct Save/Unsave state.
-                A failure here does not cancel the successful job search.
-            */
-            try {
-                const savedJobsResponse =
-                    await api.get<SavedJobResponse[]>(
-                        "/SavedJob/mine"
-                    );
-
-                const savedIds =
-                    new Set(
-                        savedJobsResponse.data.map(
-                            (savedJob) => savedJob.jobId
-                        )
-                    );
-
-                setSavedJobIds(savedIds);
-            } catch (savedJobsError) {
-                console.error(
-                    "Could not load saved jobs:",
-                    savedJobsError
-                );
-
-                setSavedJobIds(new Set());
-            }
+            await loadSavedJobs();
 
             if (returnedJobs.length === 0) {
                 setSuccessMessage(
@@ -1078,11 +1080,7 @@ SetStateAction<Set<number>>
                     `/SavedJob/${jobId}`
                 );
 
-                updateIdSet(
-                    setSavedJobIds,
-                    jobId,
-                    false
-                );
+                await loadSavedJobs();
 
                 setSuccessMessage(
                     "Job removed from saved jobs."
@@ -1095,11 +1093,7 @@ SetStateAction<Set<number>>
                     }
                 );
 
-                updateIdSet(
-                    setSavedJobIds,
-                    jobId,
-                    true
-                );
+                await loadSavedJobs();
 
                 setSuccessMessage(
                     "Job saved successfully."
@@ -2770,20 +2764,24 @@ groupHeading: (base) => ({
                                                     gap: "10px",
                                                 }}
                                             >
-                                                {!scoreWasRevealed && (
                                                 <button
                                                     type="button"
                                                     className="dashboard-primary-button"
-                                                    disabled={isCalculating}
+                                                    disabled={
+                                                        isCalculating
+                                                    }
                                                     onClick={() =>
-                                                        handleCalculateMatch(job.jobId)
+                                                        handleCalculateMatch(
+                                                            job.jobId
+                                                        )
                                                     }
                                                 >
                                                     {isCalculating
                                                         ? "Calculating..."
-                                                        : "Show Score"}
+                                                        : scoreWasRevealed
+                                                          ? "Refresh Score"
+                                                          : "Show Score"}
                                                 </button>
-                                            )}
 
                                                 <button
                                                     type="button"
