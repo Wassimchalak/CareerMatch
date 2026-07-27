@@ -256,6 +256,11 @@ interface SavedJobResponse {
     jobId: number;
 }
 
+interface AppliedJobResponse {
+    applicationId: number;
+    jobId: number;
+}
+
 const initialSearchForm: JobSearchForm = {
     country: "",
     city: "",
@@ -433,6 +438,11 @@ function DashboardPage() {
         );
 
     const [applyingJobIds, setApplyingJobIds] =
+        useState<Set<number>>(
+            new Set()
+        );
+
+    const [appliedJobIds, setAppliedJobIds] =
         useState<Set<number>>(
             new Set()
         );
@@ -629,8 +639,29 @@ SetStateAction<Set<number>>
         }
     };
 
+    const loadAppliedJobs = async () => {
+        try {
+            const response =
+                await api.get<AppliedJobResponse[]>(
+                    "/JobApplication/mine"
+                );
+
+            setAppliedJobIds(
+                new Set(
+                    response.data.map(
+                        application =>
+                            application.jobId
+                    )
+                )
+            );
+        } catch {
+            setAppliedJobIds(new Set());
+        }
+    };
+
     useEffect(() => {
         void loadSavedJobs();
+        void loadAppliedJobs();
     }, [location.pathname]);
 
     const normalizeJobsResponse = (
@@ -1142,6 +1173,8 @@ SetStateAction<Set<number>>
                         jobId: job.jobId,
                     }
                 );
+
+            await loadAppliedJobs();
 
             const destinationUrl =
                 response.data.jobUrl ||
@@ -2529,6 +2562,11 @@ groupHeading: (base) => ({
                                         job.jobId
                                     );
 
+                                const isApplied =
+                                    appliedJobIds.has(
+                                        job.jobId
+                                    );
+
                                 return (
                                     <article
                                         key={job.jobId}
@@ -2808,7 +2846,8 @@ groupHeading: (base) => ({
                                                     type="button"
                                                     className="dashboard-primary-button"
                                                     disabled={
-                                                        isApplying
+                                                        isApplying ||
+                                                        isApplied
                                                     }
                                                     onClick={() =>
                                                         handleApplyForJob(
@@ -2818,7 +2857,9 @@ groupHeading: (base) => ({
                                                 >
                                                     {isApplying
                                                         ? "Applying..."
-                                                        : "Apply"}
+                                                        : isApplied
+                                                          ? "Applied"
+                                                          : "Apply"}
                                                 </button>
                                             </div>
                                         </div>
