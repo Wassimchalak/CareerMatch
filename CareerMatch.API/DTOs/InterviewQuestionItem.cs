@@ -9,9 +9,6 @@ namespace CareerMatch.API.DTOs
         // Stores the interview question itself.
         public string Question { get; set; } = string.Empty;
 
-        // Stores a strong example answer or solution.
-        public string SuggestedAnswer { get; set; } = string.Empty;
-
         // Stores practical guidance about what the applicant should mention.
         public string HowToAnswer { get; set; } = string.Empty;
     }

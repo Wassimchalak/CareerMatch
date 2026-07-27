@@ -350,13 +350,7 @@ namespace CareerMatch.API.Services
                             column.Item()
                                 .PageBreak();
 
-                            // Adds the answer-section title.
-                            column.Item()
-                                .Text(
-                                    "Suggested Answers and Guidance"
-                                )
-                                .Bold()
-                                .FontSize(14);
+                        
 
                             // Adds theoretical answers.
                             AddAnswerSection(
@@ -443,12 +437,7 @@ namespace CareerMatch.API.Services
                             )
                             .SemiBold();
 
-                        // Adds the suggested solution.
-                        answer.Item()
-                            .PaddingTop(3)
-                            .Text(
-                                $"Suggested answer: {item.SuggestedAnswer}"
-                            );
+                       
 
                         // Adds answering guidance.
                         answer.Item()
@@ -492,8 +481,7 @@ namespace CareerMatch.API.Services
             if (allQuestions.Any(item =>
                     string.IsNullOrWhiteSpace(
                         item.Question) ||
-                    string.IsNullOrWhiteSpace(
-                        item.SuggestedAnswer) ||
+                    
                     string.IsNullOrWhiteSpace(
                         item.HowToAnswer)))
             {

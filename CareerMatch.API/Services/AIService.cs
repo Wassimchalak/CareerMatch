@@ -507,7 +507,7 @@ CV:
 Generate interview preparation for this exact job.
 
 LANGUAGE INSTRUCTIONS:
-- Write every question, suggestedAnswer, and howToAnswer in English only.
+- Write every question,howToAnswer in English only.
 - Do not detect or use the language of the job description.
 - Even if the job description is written in another language, translate the relevant meaning and generate the complete output in English.
 - Keep technical terms such as programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, and product names in their commonly used original form.
@@ -519,7 +519,6 @@ Return JSON only in this exact format:
     {{
       ""questionNumber"": 1,
       ""question"": ""Question written in the detected job-description language."",
-      ""suggestedAnswer"": ""Suggested answer written in the detected job-description language."",
       ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
     }}
   ],
@@ -527,38 +526,26 @@ Return JSON only in this exact format:
     {{
       ""questionNumber"": 6,
       ""question"": ""Practical question written in the detected job-description language."",
-      ""suggestedAnswer"": ""Suggested solution written in the detected job-description language."",
       ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
     }}
   ]
 }}
 
 REQUIREMENTS:
-- Return exactly 5 theoretical questions.
-- Return exactly 5 practical questions.
-- Base every question and answer only on the supplied job title and job description.
-- Every question must be strongly connected to the responsibilities, qualifications, tools, technologies, and domain knowledge stated or clearly implied by the job description.
-- Do not use or assume any candidate CV, skills, experience, projects, achievements, education, or personal background.
-- Do not invent job requirements that are not present or clearly implied in the job description.
-- Theoretical questions must test concepts, reasoning, architecture, tools, processes, or domain knowledge required by the job.
-- Practical questions must use coding exercises, debugging tasks, system-design scenarios, case studies, calculations, demonstrations, or realistic job tasks depending on the role.
-- Do not force coding questions for a non-technical role.
-- Adapt the difficulty to the seniority, responsibilities, and expectations shown in the job description.
-- suggestedAnswer must provide a strong but concise example answer or solution.
-- howToAnswer must explain the structure, key points, and reasoning an applicant should use.
-- Answers must teach the applicant and must not be limited to one-line responses.
-- Practical solutions may include pseudocode or short code when appropriate.
-- Keep each suggestedAnswer under 180 words.
-- Keep each howToAnswer under 90 words.
-- Use question numbers 1-5 for theoretical questions.
-- Use question numbers 6-10 for practical questions.
+- howToAnswer must explain exactly how the applicant should answer during the interview.
+- Explain what the interviewer is evaluating.
+- Describe the ideal structure of the response.
+- Mention the important technical or business concepts that should be included.
+- Mention common mistakes or weak answers to avoid when appropriate.
+- For practical questions, explain the expected approach and reasoning instead of giving a complete solution.
+- Teach the applicant how to think rather than providing a script to memorize.
+- Keep each howToAnswer under 180 words.
 - Preserve valid JSON escaping when including quotation marks, line breaks, code, or special characters.
 - Never translate or rename these JSON properties:
   theoreticalQuestions,
   practicalQuestions,
   questionNumber,
   question,
-  suggestedAnswer,
   howToAnswer.
 - Never return markdown fences, notes, commentary, headings outside the JSON, or extra text.
 - Return valid JSON only.
