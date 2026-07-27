@@ -350,19 +350,24 @@ namespace CareerMatch.API.Services
                             column.Item()
                                 .PageBreak();
 
+                            column.Item()
+                                .Text("Interview Guidance")
+                                .Bold()
+                                .FontSize(14);
+
                         
 
                             // Adds theoretical answers.
                             AddAnswerSection(
                                 column,
-                                "Theoretical Answers",
+                                "Theoretical Questions",
                                 questions.TheoreticalQuestions
                             );
 
                             // Adds practical solutions.
                             AddAnswerSection(
                                 column,
-                                "Practical Solutions",
+                                "Practical Questions",
                                 questions.PracticalQuestions
                             );
                         });
@@ -408,7 +413,7 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Adds one answer section.
+        // Adds one interview guidance section.
         private static void AddAnswerSection(
             ColumnDescriptor column,
             string heading,
@@ -422,16 +427,16 @@ namespace CareerMatch.API.Services
                 .SemiBold()
                 .FontSize(12);
 
-            // Adds every answer block.
+            // Adds interview guidance for each question.
             foreach (InterviewQuestionItem item
                 in questions)
             {
                 column.Item()
                     .PaddingBottom(8)
-                    .Column(answer =>
+                    .Column(guidance =>
                     {
                         // Repeats the question.
-                        answer.Item()
+                        guidance.Item()
                             .Text(
                                 $"{item.QuestionNumber}. {item.Question}"
                             )
@@ -439,8 +444,8 @@ namespace CareerMatch.API.Services
 
                        
 
-                        // Adds answering guidance.
-                        answer.Item()
+                        // Explains how the applicant should answer.
+                        guidance.Item()
                             .PaddingTop(3)
                             .Text(
                                 $"How to answer: {item.HowToAnswer}"
