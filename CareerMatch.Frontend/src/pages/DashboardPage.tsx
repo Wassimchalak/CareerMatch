@@ -2770,20 +2770,24 @@ groupHeading: (base) => ({
                                                     gap: "10px",
                                                 }}
                                             >
-                                                {!scoreWasRevealed && (
                                                 <button
                                                     type="button"
                                                     className="dashboard-primary-button"
-                                                    disabled={isCalculating}
+                                                    disabled={
+                                                        isCalculating
+                                                    }
                                                     onClick={() =>
-                                                        handleCalculateMatch(job.jobId)
+                                                        handleCalculateMatch(
+                                                            job.jobId
+                                                        )
                                                     }
                                                 >
                                                     {isCalculating
                                                         ? "Calculating..."
-                                                        : "Show Score"}
+                                                        : scoreWasRevealed
+                                                          ? "Refresh Score"
+                                                          : "Show Score"}
                                                 </button>
-                                            )}
 
                                                 <button
                                                     type="button"
