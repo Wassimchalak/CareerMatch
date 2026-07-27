@@ -147,6 +147,31 @@ namespace CareerMatch.API.Services
                 int userId,
                 int jobId)
         {
+            return await CalculateOrRefreshSavedJobScoreAsync(
+                userId,
+                jobId,
+                forceRefresh: false
+            );
+        }
+
+        public async Task<SavedJobScoreResponse?>
+            RefreshSavedJobScoreAsync(
+                int userId,
+                int jobId)
+        {
+            return await CalculateOrRefreshSavedJobScoreAsync(
+                userId,
+                jobId,
+                forceRefresh: true
+            );
+        }
+
+        private async Task<SavedJobScoreResponse?>
+            CalculateOrRefreshSavedJobScoreAsync(
+                int userId,
+                int jobId,
+                bool forceRefresh)
+        {
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
@@ -186,25 +211,58 @@ namespace CareerMatch.API.Services
                 return null;
             }
 
-            var matchingRequest = new JobSearchRequest
+            var matchingRequest =
+                new JobSearchRequest
+                {
+                    Country =
+                        job.Country ?? string.Empty,
+
+                    City =
+                        job.City,
+
+                    Role =
+                        string.IsNullOrWhiteSpace(
+                            job.PrimaryRole
+                        )
+                            ? job.Title
+                            : job.PrimaryRole,
+
+                    WorkType =
+                        job.WorkMode ?? string.Empty,
+
+                    EmploymentType =
+                        job.EmploymentType ?? string.Empty
+                };
+
+            Dictionary<int, AIMatchResult> matches =
+                await _matchingService
+                    .CalculateAndSaveMatchesAsync(
+                        userId,
+                        new List<Job>
+                        {
+                            job
+                        },
+                        matchingRequest,
+                        forceRefresh
+                    );
+
+            if (
+                !matches.TryGetValue(
+                    jobId,
+                    out AIMatchResult? match
+                )
+            )
             {
-                Country = job.Country ?? string.Empty,
-                City = job.City,
-                Role = string.IsNullOrWhiteSpace(job.PrimaryRole)
-                    ? job.Title
-                    : job.PrimaryRole,
-                WorkType = job.WorkMode ?? string.Empty,
-                EmploymentType = job.EmploymentType ?? string.Empty
-            };
+                return null;
+            }
 
-            var matches =
-                await _matchingService.CalculateAndSaveMatchesAsync(
-                    userId,
-                    new List<Job> { job },
-                    matchingRequest
-                );
-
-            if (!matches.TryGetValue(jobId, out var match))
+            if (
+                string.Equals(
+                    match.MatchExplanation,
+                    "Match calculation failed.",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 return null;
             }
@@ -223,7 +281,8 @@ namespace CareerMatch.API.Services
                     UserId = userId,
                     JobId = jobId,
                     MatchScore = match.MatchScore,
-                    MatchExplanation = match.MatchExplanation
+                    MatchExplanation =
+                        match.MatchExplanation
                 }
             );
 
@@ -231,8 +290,10 @@ namespace CareerMatch.API.Services
             {
                 JobId = jobId,
                 MatchScore = match.MatchScore,
-                MatchExplanation = match.MatchExplanation,
-                Recommendation = match.Recommendation
+                MatchExplanation =
+                    match.MatchExplanation,
+                Recommendation =
+                    match.Recommendation
             };
         }
 

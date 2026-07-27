@@ -413,7 +413,7 @@ function SavedJobsPage() {
         try {
             const response =
                 await api.post<SavedJobScoreResponse>(
-                    "/JobSearch/calculate-matches"
+                    `/SavedJob/${jobId}/calculate-score`
                 );
 
             setSavedJobs((currentJobs) =>

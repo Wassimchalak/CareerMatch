@@ -82,6 +82,33 @@ namespace CareerMatch.API.Controllers
             return Ok(result);
         }
 
+        [HttpPost("{jobId}/refresh-score")]
+        public async Task<IActionResult> RefreshSavedJobScore(
+            int jobId)
+        {
+            if (jobId <= 0)
+            {
+                return BadRequest("JobId is required.");
+            }
+
+            int userId = GetAuthenticatedUserId();
+
+            var result =
+                await _savedJobService.RefreshSavedJobScoreAsync(
+                    userId,
+                    jobId
+                );
+
+            if (result == null)
+            {
+                return NotFound(
+                    "Saved job was not found or its score could not be refreshed."
+                );
+            }
+
+            return Ok(result);
+        }
+
         [HttpDelete("{jobId}")]
         public async Task<IActionResult> UnsaveJob(int jobId)
         {
