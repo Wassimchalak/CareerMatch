@@ -63,6 +63,9 @@ function SavedJobsPage() {
     const [calculatingJobIds, setCalculatingJobIds] =
         useState<Set<number>>(new Set());
 
+    const [refreshingJobIds, setRefreshingJobIds] =
+        useState<Set<number>>(new Set());
+
     const [openingJobIds, setOpeningJobIds] =
         useState<Set<number>>(new Set());
 
@@ -410,7 +413,7 @@ function SavedJobsPage() {
         try {
             const response =
                 await api.post<SavedJobScoreResponse>(
-                    `/SavedJob/${jobId}/calculate-score`
+                    "/JobSearch/calculate-matches"
                 );
 
             setSavedJobs((currentJobs) =>
@@ -439,6 +442,64 @@ function SavedJobsPage() {
             );
         } finally {
             setCalculatingJobIds((currentIds) => {
+                const updatedIds = new Set(currentIds);
+                updatedIds.delete(jobId);
+                return updatedIds;
+            });
+        }
+    };
+
+    const handleRefreshScore = async (
+        jobId: number
+    ) => {
+        if (
+            calculatingJobIds.has(jobId) ||
+            refreshingJobIds.has(jobId)
+        ) {
+            return;
+        }
+
+        setSuccessMessage("");
+        setErrorMessage("");
+
+        setRefreshingJobIds((currentIds) => {
+            const updatedIds = new Set(currentIds);
+            updatedIds.add(jobId);
+            return updatedIds;
+        });
+
+        try {
+            const response =
+                await api.post<SavedJobScoreResponse>(
+                    `/SavedJob/${jobId}/refresh-score`
+                );
+
+            setSavedJobs((currentJobs) =>
+                currentJobs.map((job) =>
+                    job.jobId === jobId
+                        ? {
+                              ...job,
+                              matchScoreAtSave:
+                                  response.data.matchScore,
+                              savedMatchExplanation:
+                                  response.data.matchExplanation,
+                          }
+                        : job
+                )
+            );
+
+            setSuccessMessage(
+                "Match score refreshed successfully."
+            );
+        } catch (error) {
+            setErrorMessage(
+                getErrorMessage(
+                    error,
+                    "The match score could not be refreshed."
+                )
+            );
+        } finally {
+            setRefreshingJobIds((currentIds) => {
                 const updatedIds = new Set(currentIds);
                 updatedIds.delete(jobId);
                 return updatedIds;
@@ -775,6 +836,11 @@ function SavedJobsPage() {
                                             job.jobId
                                         );
 
+                                    const isRefreshing =
+                                        refreshingJobIds.has(
+                                            job.jobId
+                                        );
+
                                     const isOpening =
                                         openingJobIds.has(
                                             job.jobId
@@ -901,6 +967,30 @@ function SavedJobsPage() {
                                                                 </span>
                                                             </div>
                                                         )}
+
+                                                        <button
+                                                            type="button"
+                                                            className="dashboard-primary-button"
+                                                            style={{
+                                                                width:
+                                                                    "fit-content",
+                                                                marginTop:
+                                                                    "8px",
+                                                            }}
+                                                            disabled={
+                                                                isCalculating ||
+                                                                isRefreshing
+                                                            }
+                                                            onClick={() =>
+                                                                handleRefreshScore(
+                                                                    job.jobId
+                                                                )
+                                                            }
+                                                        >
+                                                            {isRefreshing
+                                                                ? "Refreshing..."
+                                                                : "Refresh Score"}
+                                                        </button>
                                                     </div>
                                                 ) : (
                                                     <div
@@ -938,7 +1028,8 @@ function SavedJobsPage() {
                                                                     "fit-content",
                                                             }}
                                                             disabled={
-                                                                isCalculating
+                                                                isCalculating ||
+                                                                isRefreshing
                                                             }
                                                             onClick={() =>
                                                                 handleCalculateScore(
