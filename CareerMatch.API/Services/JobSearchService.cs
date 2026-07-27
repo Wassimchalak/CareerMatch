@@ -66,7 +66,6 @@ namespace CareerMatch.API.Services
 
         /// <summary>
         /// Searches JSearch using role, selected work preferences, and location.
-        ///
         /// Jobs are saved before classification so every job has a local JobId.
         /// Existing classifications are reused permanently when the title and
         /// description have not changed. All uncached jobs are classified in
