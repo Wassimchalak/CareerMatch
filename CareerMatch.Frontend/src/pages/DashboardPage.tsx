@@ -1,8 +1,4 @@
-import { useEffect, useMemo, useState } from "react";import CreatableSelect from "react-select/creatable";import type {ChangeEvent,FormEvent,Dispatch,SetStateAction,} from "react";import {
-    NavLink,
-    useNavigate,
-    useLocation,
-} from "react-router-dom";import axios from "axios";import api from "../services/api";import "./DashboardPage.css";const loadingMessages = ["Searching...","🌍 Collecting the latest openings...","📋 Filtering jobs based on your preferences...","📌 Organizing the best available positions...","🚀 Preparing your personalized job list...","⏳ Just a few more seconds..."];
+import { useEffect, useMemo, useState } from "react";import CreatableSelect from "react-select/creatable";import type {ChangeEvent,FormEvent,Dispatch,SetStateAction,} from "react";import { NavLink, useNavigate } from "react-router-dom";import axios from "axios";import api from "../services/api";import "./DashboardPage.css";const loadingMessages = ["Searching...","🌍 Collecting the latest openings...","📋 Filtering jobs based on your preferences...","📌 Organizing the best available positions...","🚀 Preparing your personalized job list...","⏳ Just a few more seconds..."];
 
 const cvUploadMessages = ["Uploading your CV...","Analyzing your experience...","Extracting your skills...","Identifying your primary role...","Organizing your career profile...","Just a second more..."];const citiesByCountry: Record<string, string[]> = {lebanon: ["Beirut","Tripoli","Sidon","Zahle"],
 
@@ -251,7 +247,7 @@ const readStoredRevealedMatchJobIds = () => {try {const storedValue =sessionStor
 
 };
 
-function DashboardPage() {const navigate = useNavigate();const location = useLocation();const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);const [cvUploadMessageIndex, setCvUploadMessageIndex] =useState(0);
+function DashboardPage() {const navigate = useNavigate();const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);const [cvUploadMessageIndex, setCvUploadMessageIndex] =useState(0);
 
 const [sidebarOpen, setSidebarOpen] =
     useState(false);
@@ -403,10 +399,6 @@ useEffect(() => {
     );
 }, [revealedMatchJobIds]);
 
-useEffect(() => {
-    void loadSavedJobs();
-}, [location.pathname]);
-
 const fullName =
     localStorage.getItem("fullName") ||
     "Job Seeker";
@@ -485,30 +477,6 @@ SetStateAction<Set<number>>
 
         return updatedIds;
     });
-};
-
-const loadSavedJobs = async () => {
-    try {
-        const response =
-            await api.get<SavedJobResponse[]>(
-                "/SavedJob/mine"
-            );
-
-        setSavedJobIds(
-            new Set(
-                response.data.map(
-                    (savedJob) => savedJob.jobId
-                )
-            )
-        );
-    } catch (error) {
-        console.error(
-            "Could not load saved jobs:",
-            error
-        );
-
-        setSavedJobIds(new Set());
-    }
 };
 
 const normalizeJobsResponse = (
@@ -811,7 +779,33 @@ const handleSearchJobs = async (
             JSON.stringify(returnedJobs)
         );
 
-        await loadSavedJobs();
+        /*
+            Load the user's already-saved jobs so every card
+            starts with the correct Save/Unsave state.
+            A failure here does not cancel the successful job search.
+        */
+        try {
+            const savedJobsResponse =
+                await api.get<SavedJobResponse[]>(
+                    "/SavedJob/mine"
+                );
+
+            const savedIds =
+                new Set(
+                    savedJobsResponse.data.map(
+                        (savedJob) => savedJob.jobId
+                    )
+                );
+
+            setSavedJobIds(savedIds);
+        } catch (savedJobsError) {
+            console.error(
+                "Could not load saved jobs:",
+                savedJobsError
+            );
+
+            setSavedJobIds(new Set());
+        }
 
         if (returnedJobs.length === 0) {
             setSuccessMessage(
@@ -958,7 +952,11 @@ const handleToggleSavedJob = async (
                 `/SavedJob/${jobId}`
             );
 
-            await loadSavedJobs();
+            updateIdSet(
+                setSavedJobIds,
+                jobId,
+                false
+            );
 
             setSuccessMessage(
                 "Job removed from saved jobs."
@@ -971,7 +969,11 @@ const handleToggleSavedJob = async (
                 }
             );
 
-            await loadSavedJobs();
+            updateIdSet(
+                setSavedJobIds,
+                jobId,
+                true
+            );
 
             setSuccessMessage(
                 "Job saved successfully."
