@@ -162,7 +162,7 @@ namespace CareerMatch.API.Services
             return await CalculateOrRefreshSavedJobScoreAsync(
                 userId,
                 jobId,
-                forceRefresh: true
+                forceRefresh: false
             );
         }
 

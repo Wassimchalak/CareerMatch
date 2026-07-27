@@ -132,8 +132,9 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Uses one generation timestamp.
-            DateTime generatedAt = DateTime.Now;
+            // Uses UTC so database timestamps are consistent
+            // across local development and deployment environments.
+            DateTime generatedAt = DateTime.UtcNow;
 
             // Creates the PDF folder.
             string pdfFolder =
@@ -158,7 +159,10 @@ namespace CareerMatch.API.Services
                     applicationData.CompanyName
                 );
 
-            // Creates a unique PDF filename.
+            // Creates a unique filename for the replacement PDF.
+            // The old PDF is not overwritten immediately because the new
+            // PDF must be generated successfully before the database row
+            // and physical file are replaced.
             string pdfFileName =
                 $"Refined_CV_{safeJobTitle}_{safeCompanyName}_{Guid.NewGuid():N}.pdf";
 
@@ -175,55 +179,183 @@ namespace CareerMatch.API.Services
                     generatedCVText
                 );
 
-            // Creates the QuestPDF document.
+            // Creates the new PDF before changing the database.
             CreatePdf(
                 lines,
                 pdfFilePath
             );
 
-            // Saves one complete generated-CV row.
-            await connection.ExecuteAsync(
-                @"
-                INSERT INTO GeneratedCVs
-                (
-                    ApplicationId,
-                    GeneratedCVText,
-                    GeneratedPdfFileName,
-                    GeneratedPdfFilePath,
-                    GeneratedAt
-                )
-                VALUES
-                (
-                    @ApplicationId,
-                    @GeneratedCVText,
-                    @GeneratedPdfFileName,
-                    @GeneratedPdfFilePath,
-                    @GeneratedAt
-                );
-                ",
-                new
+            ExistingGeneratedCVData?
+                existingGeneratedCV = null;
+
+            try
+            {
+                // Dapper may close a connection after an earlier command
+                // when it originally opened that connection automatically.
+                // A transaction requires the connection to be open.
+                if (connection.State !=
+                    System.Data.ConnectionState.Open)
                 {
-                    // Links the generated CV to the application.
-                    ApplicationId =
-                        applicationId,
-
-                    // Stores the AI-generated CV text.
-                    GeneratedCVText =
-                        generatedCVText,
-
-                    // Stores the PDF filename.
-                    GeneratedPdfFileName =
-                        pdfFileName,
-
-                    // Stores the complete server path.
-                    GeneratedPdfFilePath =
-                        pdfFilePath,
-
-                    // Stores generation time.
-                    GeneratedAt =
-                        generatedAt
+                    connection.Open();
                 }
-            );
+
+                using var transaction =
+                    connection.BeginTransaction();
+
+                try
+                {
+                    // Locks this application's generated-CV row while the
+                    // insert-or-update decision is being made.
+                    existingGeneratedCV =
+                        await connection.QueryFirstOrDefaultAsync<
+                            ExistingGeneratedCVData>(
+                            @"
+                            SELECT TOP 1
+                                GeneratedCVId,
+                                GeneratedPdfFileName,
+                                GeneratedPdfFilePath
+                            FROM GeneratedCVs
+                                WITH (UPDLOCK, HOLDLOCK)
+                            WHERE ApplicationId =
+                                @ApplicationId
+                            ORDER BY GeneratedAt DESC;
+                            ",
+                            new
+                            {
+                                ApplicationId =
+                                    applicationId
+                            },
+                            transaction
+                        );
+
+                    if (existingGeneratedCV == null)
+                    {
+                        // This is the first refined CV for the application.
+                        await connection.ExecuteAsync(
+                            @"
+                            INSERT INTO GeneratedCVs
+                            (
+                                ApplicationId,
+                                GeneratedCVText,
+                                GeneratedPdfFileName,
+                                GeneratedPdfFilePath,
+                                GeneratedAt
+                            )
+                            VALUES
+                            (
+                                @ApplicationId,
+                                @GeneratedCVText,
+                                @GeneratedPdfFileName,
+                                @GeneratedPdfFilePath,
+                                @GeneratedAt
+                            );
+                            ",
+                            new
+                            {
+                                ApplicationId =
+                                    applicationId,
+
+                                GeneratedCVText =
+                                    generatedCVText,
+
+                                GeneratedPdfFileName =
+                                    pdfFileName,
+
+                                GeneratedPdfFilePath =
+                                    pdfFilePath,
+
+                                GeneratedAt =
+                                    generatedAt
+                            },
+                            transaction
+                        );
+                    }
+                    else
+                    {
+                        // A refined CV already exists for this application.
+                        // Keep the same GeneratedCVId and replace its content.
+                        await connection.ExecuteAsync(
+                            @"
+                            UPDATE GeneratedCVs
+                            SET
+                                GeneratedCVText =
+                                    @GeneratedCVText,
+
+                                GeneratedPdfFileName =
+                                    @GeneratedPdfFileName,
+
+                                GeneratedPdfFilePath =
+                                    @GeneratedPdfFilePath,
+
+                                GeneratedAt =
+                                    @GeneratedAt
+                            WHERE GeneratedCVId =
+                                @GeneratedCVId;
+                            ",
+                            new
+                            {
+                                GeneratedCVId =
+                                    existingGeneratedCV
+                                        .GeneratedCVId,
+
+                                GeneratedCVText =
+                                    generatedCVText,
+
+                                GeneratedPdfFileName =
+                                    pdfFileName,
+
+                                GeneratedPdfFilePath =
+                                    pdfFilePath,
+
+                                GeneratedAt =
+                                    generatedAt
+                            },
+                            transaction
+                        );
+                    }
+
+                    transaction.Commit();
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    throw;
+                }
+            }
+            catch
+            {
+                // The new PDF is not referenced by the database when the
+                // database operation fails, so remove the orphaned file.
+                DeleteFileWithoutFailingRequest(
+                    pdfFilePath,
+                    "NEW GENERATED CV CLEANUP ERROR"
+                );
+
+                throw;
+            }
+
+            // Delete the previous physical PDF only after the replacement
+            // row was successfully committed to the database.
+            if (
+                existingGeneratedCV != null &&
+                !string.IsNullOrWhiteSpace(
+                    existingGeneratedCV
+                        .GeneratedPdfFilePath
+                ) &&
+                !string.Equals(
+                    existingGeneratedCV
+                        .GeneratedPdfFilePath,
+                    pdfFilePath,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                DeleteFileWithoutFailingRequest(
+                    existingGeneratedCV
+                        .GeneratedPdfFilePath,
+                    "OLD GENERATED CV DELETE ERROR"
+                );
+            }
 
             // Reads the completed PDF.
             byte[] fileBytes =
@@ -663,6 +795,48 @@ namespace CareerMatch.API.Services
                     $"{skill.YearsOfExperience ?? 0} years"
                 )
             );
+        }
+
+        // Deletes a generated file without turning a successful
+        // generation into a failed API request when cleanup alone fails.
+        private static void DeleteFileWithoutFailingRequest(
+            string? filePath,
+            string logPrefix)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return;
+
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(
+                    $"{logPrefix}: {exception.Message}"
+                );
+            }
+        }
+
+        // Holds the current generated-CV row for one application.
+        private class ExistingGeneratedCVData
+        {
+            public int GeneratedCVId { get; set; }
+
+            public string? GeneratedPdfFileName
+            {
+                get;
+                set;
+            }
+
+            public string? GeneratedPdfFilePath
+            {
+                get;
+                set;
+            }
         }
 
         // Holds application, CV, and job query data.

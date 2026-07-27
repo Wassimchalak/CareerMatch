@@ -8,13 +8,14 @@ namespace CareerMatch.API.Services
 {
     /// <summary>
     /// Handles all communication with OpenAI.
-    ///
     /// Main responsibilities:
     /// - Extract the candidate's primary role and skills from a CV.
     /// - Extract the primary role and required skills from a job description.
     /// - Match one candidate against multiple jobs in one OpenAI request.
     /// - Rewrite a CV for a specific job.
     /// - Generate a personalized cover letter.
+    /// - Generate expected interview questions
+    /// - classifies jobs employment tyoe and workmMode
     /// </summary>
     public class AIService
     {

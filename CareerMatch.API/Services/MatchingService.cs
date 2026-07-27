@@ -354,13 +354,7 @@ namespace CareerMatch.API.Services
                                 aiMatch.Recommendation
                                 ?? string.Empty,
 
-                            MatchedSkills =
-                                aiMatch.MatchedSkills
-                                ?? new List<string>(),
-
-                            MissingSkills =
-                                aiMatch.MissingSkills
-                                ?? new List<string>()
+                      
                         };
 
                     result[job.JobId] =
