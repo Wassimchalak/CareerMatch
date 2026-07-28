@@ -515,25 +515,63 @@ JOBS:
                 );
 
             string prompt = $@"
-Rewrite this CV for the job while preserving complete factual accuracy.
+Rewrite this CV for the target job while preserving complete factual accuracy.
 
-FIRST:
-- Write the ENTIRE rewritten CV in English or French based on the cvSkillsText.
-- If cvSkillsText is in english,refine in english.
-- If cvSkillsText is in French ,refine in french.
-- Do not detect or use the language of the job description.
-- Even if the job description is written in another language, write the complete CV in natural, professional English of french.
-- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, and similar technologies in their original form.
+LANGUAGE VALIDATION:
 
-Rules:
-- Do not add or remove languages,skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
+- The original CV must be written primarily in English or French.
+- If the original CV is primarily written in any other language (including Arabic), do NOT rewrite it.
+- Instead return exactly:
+
+INVALID_CV_LANGUAGE
+
+LANGUAGE RULES:
+
+- Detect the language using ONLY the ORIGINAL CV.
+- Ignore the language of the job title and job description.
+- If the original CV is in English, rewrite the entire CV in English.
+- If the original CV is in French, rewrite the entire CV in French.
+- If the CV contains both English and French, use the language that represents most of the professional content.
+- Never translate an English CV into French.
+- Never translate a French CV into English.
+- Never rewrite the CV in Arabic or any other language.
+- Keep official technology names exactly as written (such as .NET, C#, SQL Server, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, HTML, CSS, Node.js, SAP, AutoCAD, Microsoft Excel).
+
+CONTENT RULES:
+
 - Do not invent information.
-- Improve wording, grammar, structure, relevance, and ATS readability.
-- Emphasize only existing qualifications that are relevant to the job.
-- Use a clean single-column resume structure with clear headings and concise bullet points.
-- Keep professional terminology appropriate for the detected language.
-- No tables, icons, markdown fences, commentary, or placeholders.
-- Return only the complete rewritten CV.
+- Do not remove information.
+- Do not add new experience.
+- Do not add projects.
+- Do not add certifications.
+- Do not add skills.
+- Do not add achievements.
+- Do not add employers.
+- Do not add education.
+- Do not change dates.
+- Do not change numbers.
+- Do not change years of experience.
+- Do not exaggerate qualifications.
+
+REFINEMENT RULES:
+
+- Improve wording, grammar, clarity, formatting, and ATS readability.
+- Improve professional writing quality.
+- Reorganize content for better readability when appropriate.
+- Emphasize existing qualifications that are genuinely relevant to the job.
+- Keep a clean single-column resume structure.
+- Use clear section headings.
+- Use concise professional bullet points.
+- Preserve all factual information.
+
+OUTPUT RULES:
+
+- Return ONLY the rewritten CV.
+- Do not return markdown.
+- Do not return code fences.
+- Do not include explanations.
+- Do not include comments.
+- Do not include placeholders.
 
 JOB:
 {jobTitle} at {companyName}
