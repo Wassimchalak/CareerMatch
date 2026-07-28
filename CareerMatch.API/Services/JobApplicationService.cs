@@ -167,7 +167,7 @@ namespace CareerMatch.API.Services
             };
         }
 
-     public async Task<List<JobApplicationHistoryResponse>>
+    public async Task<List<JobApplicationHistoryResponse>>
     GetUserApplicationsAsync(
         int userId)
 {
@@ -198,6 +198,7 @@ namespace CareerMatch.API.Services
                     FROM JobApplications ja
                     WHERE ja.UserId = @UserId
                 )
+
                 SELECT
                     ra.ApplicationId,
                     j.JobId,
@@ -212,6 +213,7 @@ namespace CareerMatch.API.Services
                     latestMatch.MatchExplanation,
                     latestMatch.Recommendation
                 FROM RankedApplications ra
+
                 INNER JOIN Jobs j
                     ON ra.JobId = j.JobId
 
@@ -226,7 +228,7 @@ namespace CareerMatch.API.Services
                         AND jm.JobId = ra.JobId
                     ORDER BY
                         jm.CreatedAt DESC,
-                        jm.MatchId DESC
+                        jm.JobMatchId DESC
                 ) latestMatch
 
                 WHERE ra.RowNumber = 1
