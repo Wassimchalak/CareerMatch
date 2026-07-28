@@ -66,77 +66,236 @@ namespace CareerMatch.API.Services
 
             // Keep the prompt short and request only the exact JSON structure needed.
 string prompt = $@"
-Analyze the document in any language and extract the candidate's main professional role and real skills only if the document is a valid CV or resume.
+You are a strict CV validator and analyzer.
+
+Your task consists of TWO completely separate steps.
+
+========================
+STEP 1 — DETERMINE WHETHER THE DOCUMENT IS A CV
+========================
+
+Before extracting anything, determine whether the entire document is genuinely a CV or resume.
+
+A document is a VALID CV only if its PRIMARY PURPOSE is to describe ONE PERSON'S professional background for employment.
 
 The document may be written in English, Arabic, French, Spanish, German, or any other language.
 
-LANGUAGE RULES:
-- Detect the document language automatically.
-- Fully understand and analyze the CV even if it is written entirely or partially in Arabic, French, or another non-English language.
-- Never reject a valid CV because of its language.
-- Translate the extracted primary role into clear, normalized English.
-- Translate general professional skill names into their common English names.
-- Keep internationally recognized technology names unchanged, such as C#, Java, React, SQL Server, Python, AutoCAD, SAP, Excel, or Power BI.
-- The JSON property names and output structure must always remain in English.
+A valid CV normally describes ONE identifiable candidate and contains evidence of several professional profile elements such as:
 
-PRIMARY ROLE RULES:
-- You must determine the candidate's most likely primary professional role for every valid CV.
-- First, look for an explicitly written role, job title, profession, career objective, professional summary, or current position.
-- If the primary role is written in Arabic, French, or another language, translate and normalize it into English.
-- If no primary role is explicitly written, infer the most likely role from the candidate's work experience, education, projects, responsibilities, qualifications, and strongest skills.
-- Choose the single role that best represents the candidate's overall professional profile.
-- Prefer the role supported by the candidate's most recent, longest, or most relevant experience.
-- Do not return an empty primaryRole for a valid CV only because the role was not directly written.
-- Do not invent a role without supporting evidence in the CV.
-- Ignore seniority words such as Junior, Senior, Lead, Principal, Entry-Level, or Expert.
-- Normalize similar job titles into a common English role.
-- Examples:
-  - ""مطور خلفيات"" becomes ""Backend Developer"".
-  - ""مهندس برمجيات"" becomes ""Software Engineer"".
-  - ""محاسب"" becomes ""Accountant"".
-  - ""معلمة اقتصاد"" becomes ""Economics Teacher"".
-  - ""Développeur web"" becomes ""Web Developer"".
-  - ""Ingénieur logiciel"" becomes ""Software Engineer"".
-  - ""Comptable"" becomes ""Accountant"".
+• Contact information
+• Name
+• Professional Summary
+• Career Objective
+• Work Experience
+• Employment History
+• Education
+• Projects
+• Skills
+• Technical Skills
+• Certifications
+• Languages
+• Volunteer Work
+• Internships
+• Awards
+• Publications
+• Responsibilities
+• Qualifications
 
-Return JSON only in this exact format:
-{{
-  ""primaryRole"": ""Backend Developer"",
-  ""skills"": [
-    {{
-      ""skillName"": ""C#"",
-      ""yearsOfExperience"": 2
-    }}
-  ]
-}}
+A CV does NOT need every section.
 
-INVALID DOCUMENT RULE:
-- If the document is not a CV or resume, return exactly:
-{{
+A modern CV may:
+
+- use tables
+- use columns
+- contain icons
+- use Europass format
+- use ATS format
+- be one page
+- be multiple pages
+- be written completely in Arabic
+- be written completely in French
+- be written in mixed languages
+
+Formatting is NOT important.
+
+THE ENTIRE DOCUMENT must primarily describe ONE candidate.
+
+========================
+INVALID DOCUMENTS
+========================
+
+Return an EMPTY result if the document is mainly any of the following:
+
+- Job description
+- Job advertisement
+- Interview questions
+- Programming exercises
+- Lecture notes
+- University lessons
+- Books
+- Research papers
+- Articles
+- Reports
+- Presentations
+- Meeting notes
+- Assignments
+- Invoices
+- Receipts
+- Contracts
+- Medical reports
+- Certificates alone
+- Diplomas alone
+- Recommendation letters
+- Random text
+- API documentation
+- Software documentation
+- Source code
+- Manuals
+- Product descriptions
+
+IMPORTANT:
+
+If the document merely LISTS technologies such as
+
+C#
+React
+Python
+SQL
+
+that DOES NOT make it a CV.
+
+If the document teaches skills,
+asks interview questions,
+describes a job,
+or explains technologies,
+
+it is NOT a CV.
+
+If there is no identifiable candidate whose background is being described,
+
+it is NOT a CV.
+
+If uncertain,
+
+return the empty result.
+
+Return exactly:
+
+{
   ""primaryRole"": """",
   ""skills"": []
-}}
-- Also return the empty result if the document is blank, unreadable, contains unrelated content, or does not include meaningful candidate information such as experience, education, projects, qualifications, responsibilities, or skills.
-- Do not treat lessons, interview questions, invoices, articles, books, assignments, reports, certificates alone, job descriptions, or random text as a CV.
-- Do not guess a role or skills from unrelated content.
+}
 
-VALID CV RULES:
-- Extract the candidate's most likely main professional role.
-- Return the primary role in normalized English.
-- Use common normalized English skill names.
-- Keep different technologies separate.
-- Extract only real technical, professional, administrative, educational, medical, financial, creative, or business skills supported by the CV.
-- Estimate years of experience only when supported by dates, durations, repeated usage, or clear experience context; otherwise use 0.
-- Correctly understand dates, job titles, responsibilities, education, qualifications, and experience written in Arabic, French, or other languages.
-- Use the candidate's responsibilities and experience to infer the role when the title is missing.
-- Do not translate company names, university names, product names, or certification names unless necessary for understanding.
-- Do not invent skills, experience, roles, employers, education, qualifications, dates, or responsibilities.
-- Do not include languages spoken as professional skills unless they are clearly relevant to the candidate's work.
-- Do not include vague traits such as hardworking, motivated, or punctual unless they are clearly presented as professional competencies.
-- No markdown, commentary, or explanation.
-- Return valid JSON only.
+========================
+STEP 2 — ONLY IF STEP 1 CONFIRMS THE DOCUMENT IS A CV
+========================
+
+Now analyze the candidate.
+
+Detect the language automatically.
+
+Understand Arabic, French and every other language.
+
+Translate the extracted primary role into normalized English.
+
+Translate professional skills into normalized English.
+
+Never translate technology names.
+
+Examples:
+
+مهندس برمجيات
+→ Software Engineer
+
+محاسب
+→ Accountant
+
+معلمة اقتصاد
+→ Economics Teacher
+
+Développeur Web
+→ Web Developer
+
+Ingénieur Logiciel
+→ Software Engineer
+
+Comptable
+→ Accountant
+
+========================
+PRIMARY ROLE
+========================
+
+Determine ONE primary professional role.
+
+Look first for:
+
+- Job title
+- Current position
+- Professional Summary
+- Career Objective
+
+If none exists,
+
+infer the role ONLY from:
+
+- work experience
+- projects
+- responsibilities
+- education
+- qualifications
+
+Do NOT invent unsupported roles.
+
+Ignore:
+
+Junior
+Senior
+Lead
+Principal
+Expert
+
+Normalize the title.
+
+========================
+SKILLS
+========================
+
+Extract ONLY skills belonging to the candidate.
+
+Do NOT extract skills from:
+
+- job requirements
+- learning material
+- course syllabus
+- interview questions
+- certificates alone
+- technology comparisons
+- books
+- articles
+
+Estimate years only when supported.
+
+Otherwise use 0.
+
+========================
+OUTPUT
+========================
+
+Return ONLY valid JSON.
+
+{
+  ""primaryRole"": ""Backend Developer"",
+  ""skills"": [
+    {
+      ""skillName"": ""C#"",
+      ""yearsOfExperience"": 2
+    }
+  ]
+}
 
 DOCUMENT:
+
 {cleanedCVText}";
 
 
