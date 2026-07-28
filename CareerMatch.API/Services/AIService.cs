@@ -65,8 +65,20 @@ namespace CareerMatch.API.Services
             string cleanedCVText = CleanText(cvText);
 
             // Keep the prompt short and request only the exact JSON structure needed.
-            string prompt = $@"
-Analyze the document and extract the candidate's main role and real skills only if the document is a valid CV or resume.
+          
+string prompt = $@"
+Analyze the document in any language and extract the candidate's main role and real skills only if the document is a valid CV or resume.
+
+The document may be written in English, Arabic, French, Spanish, or any other language.
+
+LANGUAGE RULES:
+- Detect the document language automatically.
+- Understand and analyze the CV even if it is written fully or partially in Arabic or another non-English language.
+- Translate the extracted primary role and general professional skill names into clear English.
+- Keep internationally recognized technology names unchanged, such as C#, Java, React, SQL Server, Python, AutoCAD, or SAP.
+- Normalize equivalent skill names into their common English form.
+- Do not reject a valid CV only because it is not written in English.
+- The JSON property names and output structure must always remain in English.
 
 Return JSON only in this exact format:
 {{
@@ -92,16 +104,19 @@ INVALID DOCUMENT RULE:
 VALID CV RULES:
 - Extract the candidate's most likely main professional role.
 - Ignore seniority words such as Junior, Senior, Lead, or Principal in primaryRole.
-- Use common normalized skill names.
+- Use common normalized English skill names.
 - Keep different technologies separate.
 - Extract only real technical or professional skills supported by the CV.
 - Estimate years of experience only when supported by dates, durations, or clear experience context; otherwise use 0.
+- Correctly understand dates, job titles, education, and experience written in Arabic or other languages.
+- Do not translate company names, university names, or product names unless necessary for understanding.
 - Do not invent skills, experience, roles, employers, education, or qualifications.
 - No markdown, commentary, or explanation.
 - Return valid JSON only.
 
 DOCUMENT:
 {cleanedCVText}";
+
             // Send the prompt using the single configured model.
             string outputText =
                 await SendPromptToOpenAIAsync(prompt);
