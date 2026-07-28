@@ -8,8 +8,6 @@ using UglyToad.PdfPig;
 
 namespace CareerMatch.API.Services
 {
-    // Handles CV upload, PDF text extraction, CV text hashing,
-    // OpenAI skill extraction, and database persistence.
     public class CVService
     {
         private readonly DbConnectionFactory _dbConnectionFactory;
@@ -30,19 +28,20 @@ namespace CareerMatch.API.Services
             int userId,
             IFormFile file)
         {
-            // Reject missing or empty files.
             if (file == null || file.Length == 0)
+            {
                 return null;
+            }
 
-            // Only PDF files are accepted.
             string extension =
                 Path.GetExtension(file.FileName)
                     .ToLowerInvariant();
 
             if (extension != ".pdf")
+            {
                 return null;
+            }
 
-            // Create the CV uploads folder when necessary.
             string uploadsFolder =
                 Path.Combine(
                     _environment.ContentRootPath,
@@ -52,12 +51,9 @@ namespace CareerMatch.API.Services
 
             if (!Directory.Exists(uploadsFolder))
             {
-                Directory.CreateDirectory(
-                    uploadsFolder
-                );
+                Directory.CreateDirectory(uploadsFolder);
             }
 
-            // Generate a unique server-side filename.
             string storedFileName =
                 $"{Guid.NewGuid()}{extension}";
 
@@ -67,7 +63,6 @@ namespace CareerMatch.API.Services
                     storedFileName
                 );
 
-            // Save the PDF to disk.
             using (var stream =
                 new FileStream(
                     filePath,
@@ -77,76 +72,63 @@ namespace CareerMatch.API.Services
                 await file.CopyToAsync(stream);
             }
 
-           // Extract text from all PDF pages.
-string extractedText =
-    ExtractTextFromPdf(filePath);
+            string extractedText =
+                ExtractTextFromPdf(filePath);
 
-// Reject PDFs that contain no extractable text.
-if (string.IsNullOrWhiteSpace(extractedText))
-{
-    File.Delete(filePath);
+            if (string.IsNullOrWhiteSpace(extractedText))
+            {
+                DeleteFileIfExists(filePath);
 
-    throw new InvalidOperationException(
-        "Please upload a valid CV."
-    );
-}
+                throw new InvalidOperationException(
+                    "Please upload a valid CV."
+                );
+            }
 
-// Generate a stable SHA-256 hash from normalized CV text.
-// MatchingService later uses this value to validate cache entries.
-string cvTextHash =
-    CreateTextHash(extractedText);
+            string cvTextHash =
+                CreateTextHash(extractedText);
 
-// Ask OpenAI to verify that the uploaded document is a CV
-// and extract its primary role and skills.
-var aiResult =
-    await _aiService.ExtractSkillsAsync(
-        extractedText
-    );
+            var aiResult =
+                await _aiService.ExtractSkillsAsync(
+                    extractedText
+                );
 
-// Validate the result returned by OpenAI.
-bool hasPrimaryRole =
-    !string.IsNullOrWhiteSpace(
-        aiResult?.PrimaryRole
-    );
+            bool hasPrimaryRole =
+                !string.IsNullOrWhiteSpace(
+                    aiResult?.PrimaryRole
+                );
 
-bool hasSkills =
-    aiResult?.Skills != null &&
-    aiResult.Skills.Any(skill =>
-        !string.IsNullOrWhiteSpace(
-            skill.SkillName
-        )
-    );
+            bool hasSkills =
+                aiResult?.Skills != null &&
+                aiResult.Skills.Any(skill =>
+                    !string.IsNullOrWhiteSpace(
+                        skill.SkillName
+                    )
+                );
 
-// Reject documents that OpenAI did not recognize as valid CVs.
-if (!hasPrimaryRole && !hasSkills)
-{
-    if (File.Exists(filePath))
-    {
-        File.Delete(filePath);
-    }
+            if (!hasPrimaryRole || !hasSkills)
+            {
+                DeleteFileIfExists(filePath);
 
-    throw new InvalidOperationException(
-        "Please upload a valid CV."
-    );
-}
+                throw new InvalidOperationException(
+                    "The CV was recognized, but its primary role or skills could not be extracted. Please upload the CV again."
+                );
+            }
 
-// Build the CV database model.
-var cv = new CV
-{
-    UserId = userId,
-    OriginalFileName = file.FileName,
-    StoredFileName = storedFileName,
-    FilePath = filePath,
-    ExtractedText = extractedText,
-    PrimaryRole = aiResult!.PrimaryRole,
-    CVTextHash = cvTextHash,
-    UploadedAt = DateTime.Now
-};
+            var cv = new CV
+            {
+                UserId = userId,
+                OriginalFileName = file.FileName,
+                StoredFileName = storedFileName,
+                FilePath = filePath,
+                ExtractedText = extractedText,
+                PrimaryRole = aiResult!.PrimaryRole.Trim(),
+                CVTextHash = cvTextHash,
+                UploadedAt = DateTime.UtcNow
+            };
 
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
-            // Keep the CV and extracted-skill inserts atomic.
             connection.Open();
 
             using var transaction =
@@ -154,8 +136,7 @@ var cv = new CV
 
             try
             {
-                // Insert the CV, including CVTextHash.
-                string insertCvSql = @"
+                const string insertCvSql = @"
                     INSERT INTO CVs
                     (
                         UserId,
@@ -188,34 +169,31 @@ var cv = new CV
                         transaction
                     );
 
-                // Remove empty and duplicate skill names before insertion.
                 var uniqueSkills =
-                    (aiResult.Skills
-                        ?? new List<AIExtractedSkill>())
-                    .Where(skill =>
-                        !string.IsNullOrWhiteSpace(
-                            skill.SkillName
-                        )
-                    )
-                    .GroupBy(
-                        skill => skill.SkillName.Trim(),
-                        StringComparer.OrdinalIgnoreCase
-                    )
-                    .Select(group =>
-                        group
-                            .OrderByDescending(skill =>
-                                skill.YearsOfExperience
+                    aiResult.Skills
+                        .Where(skill =>
+                            !string.IsNullOrWhiteSpace(
+                                skill.SkillName
                             )
-                            .First()
-                    )
-                    .ToList();
+                        )
+                        .GroupBy(
+                            skill => skill.SkillName.Trim(),
+                            StringComparer.OrdinalIgnoreCase
+                        )
+                        .Select(group =>
+                            group
+                                .OrderByDescending(skill =>
+                                    skill.YearsOfExperience
+                                )
+                                .First()
+                        )
+                        .ToList();
 
                 foreach (var aiSkill in uniqueSkills)
                 {
                     string skillName =
                         aiSkill.SkillName.Trim();
 
-                    // Reuse an existing normalized skill when possible.
                     var skill =
                         await connection
                             .QueryFirstOrDefaultAsync<Skill>(
@@ -233,7 +211,6 @@ var cv = new CV
                                 transaction
                             );
 
-                    // Insert the skill only once in the Skills table.
                     if (skill == null)
                     {
                         int newSkillId =
@@ -255,8 +232,7 @@ var cv = new CV
                                     new
                                     {
                                         SkillName = skillName,
-                                        CreatedAt =
-                                            DateTime.Now
+                                        CreatedAt = DateTime.UtcNow
                                     },
                                     transaction
                                 );
@@ -268,7 +244,6 @@ var cv = new CV
                         };
                     }
 
-                    // Link the extracted skill to this CV.
                     await connection.ExecuteAsync(
                         @"
                         INSERT INTO ExtractedCVSkills
@@ -295,7 +270,7 @@ var cv = new CV
                                     0,
                                     aiSkill.YearsOfExperience
                                 ),
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTime.UtcNow
                         },
                         transaction
                     );
@@ -306,13 +281,7 @@ var cv = new CV
             catch
             {
                 transaction.Rollback();
-
-                // Avoid leaving an uploaded file when the database save fails.
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-
+                DeleteFileIfExists(filePath);
                 throw;
             }
 
@@ -320,16 +289,13 @@ var cv = new CV
             {
                 CVId = cv.CVId,
                 UserId = cv.UserId,
-                OriginalFileName =
-                    cv.OriginalFileName,
-                StoredFileName =
-                    cv.StoredFileName,
+                OriginalFileName = cv.OriginalFileName,
+                StoredFileName = cv.StoredFileName,
                 FilePath = cv.FilePath,
                 UploadedAt = cv.UploadedAt
             };
         }
 
-        // Extracts text from every PDF page.
         private static string ExtractTextFromPdf(
             string filePath)
         {
@@ -346,7 +312,6 @@ var cv = new CV
             return text.ToString();
         }
 
-        // Creates a 64-character SHA-256 hexadecimal hash.
         private static string CreateTextHash(
             string? value)
         {
@@ -368,28 +333,37 @@ var cv = new CV
             );
         }
 
-        // Removes differences caused only by extra spaces,
-        // line breaks, or tabs before hashing.
         private static string NormalizeText(
             string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 return string.Empty;
+            }
 
             return string.Join(
-                " ",
-                value.Split(
-                    new[]
-                    {
-                        ' ',
-                        '\r',
-                        '\n',
-                        '\t'
-                    },
-                    StringSplitOptions.RemoveEmptyEntries
+                    " ",
+                    value.Split(
+                        new[]
+                        {
+                            ' ',
+                            '\r',
+                            '\n',
+                            '\t'
+                        },
+                        StringSplitOptions.RemoveEmptyEntries
+                    )
                 )
-            )
-            .Trim();
+                .Trim();
+        }
+
+        private static void DeleteFileIfExists(
+            string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
         }
     }
 }

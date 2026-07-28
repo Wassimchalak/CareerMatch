@@ -32,7 +32,10 @@ namespace CareerMatch.API.Services
                     FROM Jobs
                     WHERE JobId = @JobId;
                     ",
-                    new { request.JobId }
+                    new
+                    {
+                        request.JobId
+                    }
                 );
 
             if (jobExists == 0)
@@ -64,12 +67,24 @@ namespace CareerMatch.API.Services
                 await connection.QueryFirstOrDefaultAsync(
                     @"
                     SELECT TOP 1
-                        FinalScore,
-                        MatchExplanation
-                    FROM JobMatches
-                    WHERE UserId = @UserId
-                      AND JobId = @JobId
-                    ORDER BY CreatedAt DESC;
+                        jm.FinalScore,
+                        jm.MatchExplanation
+                    FROM JobMatches jm
+                    INNER JOIN
+                    (
+                        SELECT TOP 1
+                            CVId,
+                            CVTextHash
+                        FROM CVs
+                        WHERE UserId = @UserId
+                        ORDER BY
+                            UploadedAt DESC,
+                            CVId DESC
+                    ) latestCv
+                        ON jm.CVTextHash = latestCv.CVTextHash
+                    WHERE jm.UserId = @UserId
+                      AND jm.JobId = @JobId
+                    ORDER BY jm.CreatedAt DESC;
                     ",
                     new
                     {
@@ -101,8 +116,10 @@ namespace CareerMatch.API.Services
                 {
                     UserId = userId,
                     request.JobId,
-                    MatchScoreAtSave = match?.FinalScore,
-                    SavedMatchExplanation = match?.MatchExplanation,
+                    MatchScoreAtSave =
+                        match?.FinalScore,
+                    SavedMatchExplanation =
+                        match?.MatchExplanation,
                     SavedAt = DateTime.UtcNow
                 }
             );
@@ -136,7 +153,10 @@ namespace CareerMatch.API.Services
                     WHERE sj.UserId = @UserId
                     ORDER BY sj.SavedAt DESC;
                     ",
-                    new { UserId = userId }
+                    new
+                    {
+                        UserId = userId
+                    }
                 );
 
             return savedJobs.ToList();
@@ -162,7 +182,7 @@ namespace CareerMatch.API.Services
             return await CalculateOrRefreshSavedJobScoreAsync(
                 userId,
                 jobId,
-                forceRefresh: false
+                forceRefresh: true
             );
         }
 
@@ -262,6 +282,18 @@ namespace CareerMatch.API.Services
                     "Match calculation failed.",
                     StringComparison.OrdinalIgnoreCase
                 )
+                ||
+                string.Equals(
+                    match.MatchExplanation,
+                    "The latest uploaded CV has no extracted skills.",
+                    StringComparison.OrdinalIgnoreCase
+                )
+                ||
+                string.Equals(
+                    match.MatchExplanation,
+                    "No uploaded CV was found.",
+                    StringComparison.OrdinalIgnoreCase
+                )
             )
             {
                 return null;
@@ -280,7 +312,8 @@ namespace CareerMatch.API.Services
                 {
                     UserId = userId,
                     JobId = jobId,
-                    MatchScore = match.MatchScore,
+                    MatchScore =
+                        match.MatchScore,
                     MatchExplanation =
                         match.MatchExplanation
                 }

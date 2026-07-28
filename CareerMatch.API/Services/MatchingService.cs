@@ -5,22 +5,9 @@ using Dapper;
 
 namespace CareerMatch.API.Services
 {
-    /// <summary>
-    /// Handles candidate-to-job matching and match caching.
-    ///
-    /// Responsibilities:
-    /// - Load the latest CV that actually has extracted skills.
-    /// - Load the candidate's extracted skills.
-    /// - Reuse valid cached matches.
-    /// - Send only new or changed jobs to OpenAI.
-    /// - Save only successful OpenAI results.
-    /// </summary>
     public class MatchingService
     {
-        // Used to create SQL Server connections.
         private readonly DbConnectionFactory _dbConnectionFactory;
-
-        // Used to calculate job matches with OpenAI.
         private readonly AIService _aiService;
 
         public MatchingService(
@@ -31,15 +18,6 @@ namespace CareerMatch.API.Services
             _aiService = aiService;
         }
 
-        /// <summary>
-        /// Calculates and saves match results for several jobs.
-        ///
-        /// Cache validation requires:
-        /// - Same user
-        /// - Same job
-        /// - Same CVTextHash
-        /// - Same DescriptionHash
-        /// </summary>
         public async Task<Dictionary<int, AIMatchResult>>
             CalculateAndSaveMatchesAsync(
                 int userId,
@@ -50,21 +28,14 @@ namespace CareerMatch.API.Services
             var result =
                 new Dictionary<int, AIMatchResult>();
 
-            // Return immediately when there are no jobs.
             if (jobs.Count == 0)
+            {
                 return result;
+            }
 
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
-            /*
-             * Load the latest CV that has at least one extracted skill.
-             *
-             * This is important because the user's latest CV row may exist,
-             * but its skill extraction may have failed or not completed.
-             * Using that CV would send an empty skills array to OpenAI,
-             * which would cause every score to be 0.
-             */
             var cv =
                 await connection.QueryFirstOrDefaultAsync<CV>(
                     @"
@@ -76,13 +47,9 @@ namespace CareerMatch.API.Services
                         cv.UploadedAt
                     FROM CVs cv
                     WHERE cv.UserId = @UserId
-                      AND EXISTS
-                      (
-                          SELECT 1
-                          FROM ExtractedCVSkills ecvs
-                          WHERE ecvs.CVId = cv.CVId
-                      )
-                    ORDER BY cv.UploadedAt DESC;
+                    ORDER BY
+                        cv.UploadedAt DESC,
+                        cv.CVId DESC;
                     ",
                     new
                     {
@@ -90,7 +57,6 @@ namespace CareerMatch.API.Services
                     }
                 );
 
-            // No CV with extracted skills was found.
             if (cv == null)
             {
                 foreach (var job in jobs)
@@ -101,16 +67,15 @@ namespace CareerMatch.API.Services
                             JobId = job.JobId,
                             MatchScore = 0,
                             MatchExplanation =
-                                "No CV with extracted skills was found.",
+                                "No uploaded CV was found.",
                             Recommendation =
-                                "Upload the CV again and make sure skill extraction completes successfully."
+                                "Upload a CV before calculating job matches."
                         };
                 }
 
                 return result;
             }
 
-            // Load the skills extracted from the selected CV.
             var cvSkills =
                 (
                     await connection.QueryAsync<AIExtractedSkill>(
@@ -133,7 +98,6 @@ namespace CareerMatch.API.Services
                     )
                 ).ToList();
 
-            // Extra safety check.
             if (cvSkills.Count == 0)
             {
                 foreach (var job in jobs)
@@ -144,7 +108,7 @@ namespace CareerMatch.API.Services
                             JobId = job.JobId,
                             MatchScore = 0,
                             MatchExplanation =
-                                "The selected CV has no extracted skills.",
+                                "The latest uploaded CV has no extracted skills.",
                             Recommendation =
                                 "Upload the CV again so its skills can be extracted."
                         };
@@ -153,18 +117,12 @@ namespace CareerMatch.API.Services
                 return result;
             }
 
-            // Get unique job IDs for loading cached results.
-            var jobIds = jobs
-                .Select(job => job.JobId)
-                .Distinct()
-                .ToList();
+            var jobIds =
+                jobs
+                    .Select(job => job.JobId)
+                    .Distinct()
+                    .ToList();
 
-            /*
-             * Load all previous matches for these jobs.
-             *
-             * We do not filter by CVId because the same CV content can be
-             * uploaded again and receive a different CVId.
-             */
             var cachedMatches =
                 (
                     await connection.QueryAsync<CachedMatchData>(
@@ -192,11 +150,6 @@ namespace CareerMatch.API.Services
                     )
                 ).ToList();
 
-            /*
-             * Keep only cache entries that:
-             * - Were calculated using the same CV content.
-             * - Do not represent a previous failed calculation.
-             */
             var cachedMatchesByJobId =
                 cachedMatches
                     .Where(cachedMatch =>
@@ -222,8 +175,8 @@ namespace CareerMatch.API.Services
                         group => group.First()
                     );
 
-            // Jobs that require a new OpenAI calculation.
-            var jobsToMatch = new List<Job>();
+            var jobsToMatch =
+                new List<Job>();
 
             foreach (var job in jobs)
             {
@@ -249,7 +202,6 @@ namespace CareerMatch.API.Services
                     cachedMatch != null
                 )
                 {
-                    // Reuse the cached match only when refresh was not forced.
                     result[job.JobId] =
                         new AIMatchResult
                         {
@@ -266,26 +218,19 @@ namespace CareerMatch.API.Services
                 }
                 else
                 {
-                    // This job is new or its description changed.
                     jobsToMatch.Add(job);
                 }
             }
 
-            // No OpenAI request is needed when all matches are cached.
             if (jobsToMatch.Count == 0)
+            {
                 return result;
+            }
 
             List<AIMatchResult> aiMatches;
 
             try
             {
-                /*
-                 * Send one request containing:
-                 * - CV primary role
-                 * - Extracted CV skills
-                 * - Search preferences
-                 * - Only jobs without a valid cache
-                 */
                 aiMatches =
                     await _aiService.GenerateJobMatchesAsync(
                         cv.PrimaryRole ?? string.Empty,
@@ -296,7 +241,6 @@ namespace CareerMatch.API.Services
             }
             catch (Exception ex)
             {
-                // Show the real error in the API terminal.
                 Console.WriteLine(
                     $"OPENAI MATCH ERROR: {ex}"
                 );
@@ -305,10 +249,10 @@ namespace CareerMatch.API.Services
                     new List<AIMatchResult>();
             }
 
-            // Only accept results belonging to requested jobs.
-            var validJobIds = jobsToMatch
-                .Select(job => job.JobId)
-                .ToHashSet();
+            var validJobIds =
+                jobsToMatch
+                    .Select(job => job.JobId)
+                    .ToHashSet();
 
             var aiMatchesByJobId =
                 aiMatches
@@ -327,40 +271,34 @@ namespace CareerMatch.API.Services
 
             foreach (var job in jobsToMatch)
             {
-                /*
-                 * Save only when OpenAI returned a real match
-                 * for this exact JobId.
-                 */
-                if (aiMatchesByJobId.TryGetValue(
+                if (
+                    aiMatchesByJobId.TryGetValue(
                         job.JobId,
-                        out var aiMatch))
+                        out var aiMatch
+                    )
+                )
                 {
                     var matchResult =
                         new AIMatchResult
                         {
                             JobId = job.JobId,
-
-                            MatchScore = Math.Clamp(
-                                aiMatch.MatchScore,
-                                0,
-                                100
-                            ),
-
+                            MatchScore =
+                                Math.Clamp(
+                                    aiMatch.MatchScore,
+                                    0,
+                                    100
+                                ),
                             MatchExplanation =
                                 aiMatch.MatchExplanation
                                 ?? string.Empty,
-
                             Recommendation =
                                 aiMatch.Recommendation
-                                ?? string.Empty,
-
-                      
+                                ?? string.Empty
                         };
 
                     result[job.JobId] =
                         matchResult;
 
-                    // Save only a successful AI response.
                     await SaveMatchAsync(
                         connection,
                         userId,
@@ -373,10 +311,6 @@ namespace CareerMatch.API.Services
                 }
                 else
                 {
-                    /*
-                     * Return a temporary failure result.
-                     * Do not save it, so the next request can try again.
-                     */
                     result[job.JobId] =
                         new AIMatchResult
                         {
@@ -393,9 +327,6 @@ namespace CareerMatch.API.Services
             return result;
         }
 
-        /// <summary>
-        /// Saves or updates a successful cached match.
-        /// </summary>
         private static async Task SaveMatchAsync(
             System.Data.IDbConnection connection,
             int userId,
@@ -475,9 +406,6 @@ namespace CareerMatch.API.Services
             );
         }
 
-        /// <summary>
-        /// Prevents old failed match rows from being treated as valid cache.
-        /// </summary>
         private static bool IsSuccessfulCachedMatch(
             CachedMatchData cachedMatch)
         {
@@ -504,14 +432,16 @@ namespace CareerMatch.API.Services
                 explanation.Contains(
                     "no listed skills",
                     StringComparison.OrdinalIgnoreCase
+                )
+                ||
+                explanation.Contains(
+                    "no extracted skills",
+                    StringComparison.OrdinalIgnoreCase
                 );
 
             return !failed;
         }
 
-        /// <summary>
-        /// Private Dapper mapping class for cached JobMatches rows.
-        /// </summary>
         private class CachedMatchData
         {
             public int JobMatchId { get; set; }
