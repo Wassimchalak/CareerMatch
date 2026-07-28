@@ -65,8 +65,10 @@ namespace CareerMatch.API.Services
             string cleanedCVText = CleanText(cvText);
 
             // Keep the prompt short and request only the exact JSON structure needed.
-            string prompt = $@"
+           string prompt = $@"
 Analyze the document and extract the candidate's main role and real skills only if the document is a valid CV or resume.
+
+The CV may be written in English, Arabic, French, or a combination of these languages.
 
 Return JSON only in this exact format:
 {{
@@ -78,6 +80,15 @@ Return JSON only in this exact format:
     }}
   ]
 }}
+
+LANGUAGE RULES:
+- Accept CVs written in English, Arabic, French, or any combination of these languages.
+- Understand Arabic and French section titles, job titles, education, experience, projects, qualifications, and skills.
+- Translate the extracted primaryRole into clear English.
+- Normalize skill names into their common English technical or professional names when appropriate.
+- Do not reject a valid CV only because it is written in Arabic or French.
+- Preserve official technology names such as C#, Java, React, SQL Server, AutoCAD, SAP, or Microsoft Excel.
+- Do not translate personal names, company names, university names, or certification names unless a common official English name is clearly known.
 
 INVALID DOCUMENT RULE:
 - If the document is not a CV or resume, return exactly:
@@ -96,6 +107,7 @@ VALID CV RULES:
 - Keep different technologies separate.
 - Extract only real technical or professional skills supported by the CV.
 - Estimate years of experience only when supported by dates, durations, or clear experience context; otherwise use 0.
+- Interpret Arabic and French dates, durations, employment descriptions, and education details when calculating experience.
 - Do not invent skills, experience, roles, employers, education, or qualifications.
 - No markdown, commentary, or explanation.
 - Return valid JSON only.

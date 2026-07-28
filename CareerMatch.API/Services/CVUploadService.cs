@@ -110,7 +110,7 @@ namespace CareerMatch.API.Services
                 DeleteFileIfExists(filePath);
 
                 throw new InvalidOperationException(
-                    "The CV was recognized, but its primary role or skills could not be extracted. Please upload the CV again."
+                    "please upload a valid cv."
                 );
             }
 
