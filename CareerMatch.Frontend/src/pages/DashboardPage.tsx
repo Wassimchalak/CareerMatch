@@ -2806,24 +2806,24 @@ groupHeading: (base) => ({
                                                     gap: "10px",
                                                 }}
                                             >
-                                                <button
-                                                    type="button"
-                                                    className="dashboard-primary-button"
-                                                    disabled={
-                                                        isCalculating
-                                                    }
-                                                    onClick={() =>
-                                                        handleCalculateMatch(
-                                                            job.jobId
-                                                        )
-                                                    }
-                                                >
-                                                    {isCalculating
-                                                        ? "Calculating..."
-                                                        : scoreWasRevealed
-                                                          ? "Refresh Score"
-                                                          : "Show Score"}
-                                                </button>
+                                                {!scoreWasRevealed && (
+                                                    <button
+                                                        type="button"
+                                                        className="dashboard-primary-button"
+                                                        disabled={
+                                                            isCalculating
+                                                        }
+                                                        onClick={() =>
+                                                            handleCalculateMatch(
+                                                                job.jobId
+                                                            )
+                                                        }
+                                                    >
+                                                        {isCalculating
+                                                            ? "Calculating..."
+                                                            : "Show Score"}
+                                                    </button>
+                                                )}
 
                                                 <button
                                                     type="button"
