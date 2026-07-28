@@ -68,7 +68,7 @@ namespace CareerMatch.API.Services
            string prompt = $@"
 Analyze the document and extract the candidate's main role and real skills only if the document is a valid CV or resume.
 
-The CV may be written in English, Arabic, French, or a combination of these languages.
+The CV may be written in English or French.
 
 Return JSON only in this exact format:
 {{
@@ -82,11 +82,11 @@ Return JSON only in this exact format:
 }}
 
 LANGUAGE RULES:
-- Accept CVs written in English, Arabic, French, or any combination of these languages.
-- Understand Arabic and French section titles, job titles, education, experience, projects, qualifications, and skills.
+- Accept CVs written in English and french only.
+- Understand French section titles, job titles, education, experience, projects, qualifications, and skills.
 - Translate the extracted primaryRole into clear English.
 - Normalize skill names into their common English technical or professional names when appropriate.
-- Do not reject a valid CV only because it is written in Arabic or French.
+- Do not reject a valid CV only because it is written in French.
 - Preserve official technology names such as C#, Java, React, SQL Server, AutoCAD, SAP, or Microsoft Excel.
 - Do not translate personal names, company names, university names, or certification names unless a common official English name is clearly known.
 
@@ -107,7 +107,7 @@ VALID CV RULES:
 - Keep different technologies separate.
 - Extract only real technical or professional skills supported by the CV.
 - Estimate years of experience only when supported by dates, durations, or clear experience context; otherwise use 0.
-- Interpret Arabic and French dates, durations, employment descriptions, and education details when calculating experience.
+- Interpret French dates, durations, employment descriptions, and education details when calculating experience.
 - Do not invent skills, experience, roles, employers, education, or qualifications.
 - No markdown, commentary, or explanation.
 - Return valid JSON only.
@@ -390,77 +390,25 @@ JOBS:
                     DocumentJobDescriptionLimit
                 );
 
-          string prompt = $@"
+            string prompt = $@"
 Rewrite this CV for the job while preserving complete factual accuracy.
 
-The original CV may be written in English, Arabic, French, or a combination of these languages.
+FIRST:
+- Write the ENTIRE rewritten CV in English or French based on the cvSkillsText.
+- If cvSkillsText is in english,refine in english.
+- If cvSkillsText is in French ,refine in french.
+- Do not detect or use the language of the job description.
+- Even if the job description is written in another language, write the complete CV in natural, professional English of french.
+- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, and similar technologies in their original form.
 
-LANGUAGE INSTRUCTIONS:
-- Detect the main language of the ORIGINAL CV.
-- If the original CV is mainly Arabic, rewrite the complete CV in professional Arabic.
-- If the original CV is mainly French, rewrite the complete CV in professional French.
-- If the original CV is mainly English, rewrite the complete CV in professional English.
-- If the CV contains multiple languages, use the language used in most of the professional content.
-- Base the output language only on the ORIGINAL CV, not on the job description.
-- Do not change the output language because of the language used in the job description.
-- Keep the ENTIRE rewritten CV in one language.
-- Do not mix Arabic, French, and English sentences in the rewritten CV, except for official names and technical terms.
-- Use natural, professional, grammatically correct language appropriate for a CV.
-- Translate section headings into the detected CV language.
-- Preserve personal names, company names, university names, institution names, and certification names as written unless an official translated name is clearly known.
-- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, SAP, AutoCAD, and Microsoft Excel in their common original form.
-
-ARABIC CV RULES:
-- If the detected language is Arabic, write the full CV in clear Modern Standard Arabic.
-- Use professional Arabic terminology suitable for recruitment and ATS systems.
-- Use clear Arabic headings such as:
-  المعلومات الشخصية
-  الملخص المهني
-  الخبرة العملية
-  التعليم
-  المهارات
-  المشاريع
-  الشهادات
-  اللغات
-- Preserve dates, numbers, technology names, company names, and official titles accurately.
-- Do not use informal Arabic or local dialect.
-
-FRENCH CV RULES:
-- If the detected language is French, write the full CV in natural, professional French.
-- Use terminology commonly used in French CVs.
-- Use clear French headings such as:
-  Informations personnelles
-  Profil professionnel
-  Expérience professionnelle
-  Formation
-  Compétences
-  Projets
-  Certifications
-  Langues
-- Preserve dates, numbers, technology names, company names, and official titles accurately.
-- Use correct French grammar, accents, gender agreement, and professional vocabulary.
-
-ACCURACY RULES:
-- Do not add or remove languages, skills, experience, projects, education, certifications, dates, employers, achievements, responsibilities, or numbers.
+Rules:
+- Do not add or remove languages,skills, experience, projects, education, certifications, dates, employers, achievements, or numbers.
 - Do not invent information.
-- Do not change dates, employment durations, job titles, qualification levels, grades, percentages, or numerical achievements.
-- Do not claim that the candidate has a qualification, responsibility, or achievement that is not clearly present in the original CV.
-- Do not convert unclear content into a confirmed fact.
-- If a sentence is unclear because of PDF extraction, rewrite only the parts that can be understood reliably.
-- Preserve the original meaning of every statement.
-
-REFINEMENT RULES:
-- Improve wording, grammar, structure, relevance, clarity, and ATS readability.
+- Improve wording, grammar, structure, relevance, and ATS readability.
 - Emphasize only existing qualifications that are relevant to the job.
-- Rewrite responsibilities and achievements using concise professional language.
-- Use strong action verbs without exaggerating the candidate's contribution.
-- Normalize section headings according to the detected CV language.
 - Use a clean single-column resume structure with clear headings and concise bullet points.
-- Organize the content logically while preserving all factual information.
-- Keep professional terminology appropriate to the candidate's field and language.
-- Avoid unnecessary repetition.
-- Do not add a professional summary, objective, skills section, project, achievement, language, or certification unless equivalent information already exists in the original CV.
-- No tables, icons, markdown fences, commentary, explanations, notes, or placeholders.
+- Keep professional terminology appropriate for the detected language.
+- No tables, icons, markdown fences, commentary, or placeholders.
 - Return only the complete rewritten CV.
 
 JOB:
@@ -474,6 +422,7 @@ CANDIDATE SKILLS:
 
 ORIGINAL CV:
 {CleanText(originalCVText)}";
+
             return await SendPromptToOpenAIAsync(prompt);
         }
 
