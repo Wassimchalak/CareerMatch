@@ -146,9 +146,6 @@ function AuthPage() {
     const [showPassword, setShowPassword] =
         useState(false);
 
-    const [rememberMe, setRememberMe] =
-        useState(false);
-
     const [isSubmitting, setIsSubmitting] =
         useState(false);
 
@@ -166,7 +163,6 @@ function AuthPage() {
         setEmail("");
         setPassword("");
         setShowPassword(false);
-        setRememberMe(false);
         setErrorMessage("");
     }
 
@@ -543,31 +539,6 @@ function AuthPage() {
 
                         {!isSignUp && (
                             <div className="auth-options">
-                                <label className="remember-option">
-                                    <input
-                                        type="checkbox"
-                                        checked={
-                                            rememberMe
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setRememberMe(
-                                                event
-                                                    .target
-                                                    .checked
-                                            )
-                                        }
-                                        disabled={
-                                            isSubmitting
-                                        }
-                                    />
-
-                                    <span>
-                                        Remember me
-                                    </span>
-                                </label>
-
                                 <button
                                     type="button"
                                     className="forgot-password-button"
