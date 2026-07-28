@@ -4,6 +4,10 @@ WORKDIR /app
 
 EXPOSE 10000
 
+# Disable appsettings.json file watching in Render/Linux.
+# This prevents the inotify instance limit startup crash.
+ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
+
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 WORKDIR /src
