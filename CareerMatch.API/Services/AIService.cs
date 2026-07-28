@@ -64,269 +64,340 @@ namespace CareerMatch.API.Services
             // Remove unnecessary whitespace before sending the CV to OpenAI.
             string cleanedCVText = CleanText(cvText);
 
-            // Keep the prompt short and request only the exact JSON structure needed.
-string prompt = $@"
-You are a strict CV validator and analyzer.
+  string prompt = $@"
+You are a multilingual CV validator and professional-profile analyzer.
 
-Your task consists of TWO completely separate steps.
+The document text was extracted from a PDF. PDF text extraction may produce:
 
-========================
+- Reversed Arabic word order
+- Misplaced labels and values
+- Broken lines
+- Incorrect spacing
+- Merged words
+- Separated letters
+- Reordered columns
+- Reordered bullet points
+- Page headers mixed with body text
+- Numbers appearing before or after their intended position
+
+Do not reject a genuine CV only because the extracted text has formatting, ordering, spacing, or right-to-left language issues.
+
+You must complete the task in this exact order:
+
+1. Determine whether the document is genuinely a CV or resume.
+2. Only if it is a valid CV, identify the candidate's primary role.
+3. Only if it is a valid CV, extract skills belonging to the candidate.
+
+==================================================
 STEP 1 — DETERMINE WHETHER THE DOCUMENT IS A CV
-========================
+==================================================
 
-Before extracting anything, determine whether the entire document is genuinely a CV or resume.
-
-A document is a VALID CV only if its PRIMARY PURPOSE is to describe ONE PERSON'S professional background for employment.
+A valid CV or resume is a document whose primary purpose is to describe one person's professional, educational, or employment background.
 
 The document may be written in English, Arabic, French, Spanish, German, or any other language.
 
-A valid CV normally describes one identifiable candidate and contains evidence of multiple professional-profile elements, such as:
+A valid CV does not need to use a fixed template.
 
-- Candidate name
-- Contact information
-- Professional summary
-- Career objective
-- Current or previous job title
-- Work experience
-- Employment history
+It may be:
+
+- One page or multiple pages
+- Written in paragraphs
+- Written using bullet points
+- Written using tables or columns
+- Written entirely in Arabic
+- Written entirely in French
+- Written using multiple languages
+- Missing contact details
+- Missing an explicit job title
+- Missing a dedicated skills section
+- Extracted from a PDF with damaged or reordered text
+
+Recognize common CV section headings and their equivalents in any language.
+
+Examples include:
+
+English:
+- Curriculum Vitae
+- CV
+- Resume
+- Personal Information
+- Professional Summary
+- Work Experience
+- Employment History
 - Education
-- Projects
 - Skills
-- Technical skills
+- Projects
 - Certifications
 - Training
 - Languages
-- Volunteer experience
-- Internships
-- Awards
-- Publications
-- Professional responsibilities
-- Qualifications
-- Professional achievements
+- Achievements
+- Volunteer Experience
 
-A valid CV does not need to contain every section.
+Arabic:
+- السيرة الذاتية
+- المعلومات الشخصية
+- الملخص المهني
+- الهدف المهني
+- الخبرة المهنية
+- الخبرات العملية
+- المؤهل العلمي
+- التعليم
+- المهارات
+- الإنجازات المهنية
+- الدورات والشهادات
+- اللغات
+- النشاطات المجتمعية
+- المشاريع
 
-A valid modern CV may:
-
-- Use tables or columns.
-- Contain icons.
-- Use Europass format.
-- Use an ATS-friendly format.
-- Be one page or multiple pages.
-- Be written entirely in Arabic.
-- Be written entirely in French.
-- Use a mixture of languages.
-- Use section headings that differ from the examples above.
-- Present information without clearly labeled sections.
-
-Formatting alone does not determine whether a document is a CV.
-
-The document must primarily describe one candidate's professional, educational, or employment background.
-
-========================
-STRICT VALIDATION RULES
-========================
-
-Do not classify a document as a CV merely because it contains:
-
-- Skill names
-- Technology names
-- Job titles
-- Company names
-- Education terms
+French:
+- Curriculum Vitae
+- Informations personnelles
+- Profil professionnel
+- Résumé professionnel
+- Objectif professionnel
+- Expérience professionnelle
+- Parcours professionnel
+- Formation
+- Éducation
+- Compétences
+- Projets
 - Certifications
-- Years or dates
-- Professional vocabulary
-- Lists of tools
-- Programming languages
-- Software names
+- Langues
+- Réalisations
+- Activités bénévoles
 
-The presence of skills such as C#, React, Java, Python, SQL, Excel, Power BI, AutoCAD, or SAP does NOT prove that the document is a CV.
+Section labels may appear before or after their values because of PDF extraction problems.
 
-Before accepting the document as a CV, verify that the skills, education, projects, qualifications, or experience are clearly connected to one candidate's personal professional background.
+For example, both of these may represent the same information:
 
-A valid CV should provide meaningful evidence that the document describes a candidate, not merely a topic, job, lesson, course, or technology.
+- ""الاسم: شيرين نافذ""
+- ""شيرين نافذ :الاسم""
 
-Strong evidence of a valid CV includes combinations such as:
+Do not depend only on the order of words or lines.
 
-- A candidate's name together with work experience or education.
-- Employment positions connected to companies and dates.
-- Education connected to institutions, degrees, or graduation dates.
-- Projects described as work completed by the candidate.
-- Skills presented as abilities belonging to the candidate.
-- A professional summary written about the candidate.
-- Responsibilities performed by the candidate.
-- Career history presented chronologically.
-- Personal contact details together with professional information.
+==================================================
+VALID CV EVIDENCE
+==================================================
 
-Do not require contact details if the remaining document clearly represents a candidate's CV.
+Consider the document a valid CV when the overall text contains clear candidate-specific professional history.
 
-However, a simple list of skills without candidate history is not enough.
+Strong CV evidence includes one or more of the following combinations:
 
-A simple list of job titles without candidate history is not enough.
+- A CV heading together with professional or educational information
+- A candidate name together with work experience
+- Job positions connected to employers or organizations
+- Responsibilities performed by the candidate
+- Education connected to a degree, school, or university
+- A professional summary describing the candidate
+- A chronological employment history
+- Projects described as completed by the candidate
+- Candidate-specific achievements
+- Skills connected to the candidate's experience
+- Certifications or training combined with employment or education
+- Multiple sections commonly found in a CV
 
-A single name followed by unrelated text is not enough.
+A document does not require every element.
 
-========================
-INVALID DOCUMENT RULES
-========================
+For experienced candidates, employment history and responsibilities may be the strongest evidence.
 
-The following documents are NOT CVs unless the overall document clearly and primarily contains a candidate's complete professional profile:
+For recent graduates, education, projects, internships, and skills may be sufficient.
 
-- Job descriptions
-- Job advertisements
-- Vacancy announcements
+For teachers, administrators, healthcare workers, accountants, managers, and other non-technical candidates, professional responsibilities and career progression are valid CV evidence even when no technologies are mentioned.
+
+A CV written in the third person is still valid.
+
+A CV without an email address or phone number is still valid if it clearly describes one candidate's professional background.
+
+==================================================
+SKILLS ALONE DO NOT PROVE THAT IT IS A CV
+==================================================
+
+The presence of skill names or technologies does not by itself make a document a CV.
+
+For example, a document containing only:
+
+- C#
+- React
+- Python
+- SQL Server
+- Communication
+- Leadership
+
+is not automatically a CV.
+
+Before accepting a document, verify that the information describes the professional background of one candidate.
+
+Skills must appear as part of a candidate profile, work history, education, projects, responsibilities, qualifications, or a genuine CV skills section.
+
+==================================================
+INVALID DOCUMENTS
+==================================================
+
+Reject the document if its primary purpose is any of the following:
+
+- A job advertisement
+- A job description
+- Vacancy requirements
 - Interview questions
 - Interview answers
-- Programming exercises
-- Coding challenges
+- A programming exercise
+- A coding challenge
 - Lecture notes
-- Course material
-- University lessons
-- Course syllabuses
-- Books
-- Research papers
-- Articles
-- Reports
-- Presentations
-- Assignments
-- Exams
-- Question banks
+- Course content
+- A course syllabus
+- A university lesson
+- An assignment
+- An examination
+- A question bank
+- A book
+- An article
+- A research paper
+- A company report
+- A presentation
 - Meeting notes
-- Invoices
-- Receipts
-- Contracts
-- Medical reports
-- Bank statements
-- Certificates alone
-- Diplomas alone
-- Academic transcripts alone
-- Recommendation letters alone
-- Cover letters alone
-- Motivation letters alone
-- Passports
-- Identity documents
-- Application forms
 - API documentation
 - Software documentation
 - Source code
-- Technical manuals
-- Product descriptions
-- Company profiles
-- Project documentation
+- A technical manual
+- A product description
+- A company profile
+- An invoice
+- A receipt
+- A bank statement
+- A contract
+- A medical report
+- A passport
+- An identity document
 - Random or unrelated text
 
-A document describing the requirements of a job is not a CV.
+Also reject:
 
-A document describing the desired skills for a vacancy is not a CV.
+- A certificate by itself
+- A diploma by itself
+- An academic transcript by itself
+- A recommendation letter by itself
+- A cover letter by itself
+- A motivation letter by itself
+- A list of skills without candidate history
+- A list of job requirements
+- A lesson that merely mentions professional skills
+- Interview material that merely mentions technologies
+- A job description that lists required qualifications
 
-A document teaching or explaining technologies is not a CV.
+However, do not reject a CV simply because it includes certificates, a cover-letter paragraph, or other supporting information alongside a clear candidate profile.
 
-A document containing interview questions about technologies is not a CV.
+Evaluate the document's overall primary purpose.
 
-A document containing a list of skills copied from a job advertisement is not a CV.
+==================================================
+DECISION RULE
+==================================================
 
-A document containing only certificates, diplomas, or course completion records is not a CV.
+Accept the document as a valid CV when there is sufficient evidence that it describes one person's professional or educational background.
 
-If there is no clear candidate whose professional background is being described, the document is not a CV.
+Reject it when the text only mentions skills, professions, qualifications, or technologies without presenting a candidate's background.
 
-If the document contains both candidate information and unrelated material, determine its primary purpose.
+Do not reject a document merely because:
 
-Accept it only when its primary purpose is clearly to present the candidate's professional profile.
+- Arabic text is reversed
+- Labels follow their values
+- Sentences are fragmented
+- Formatting was lost during PDF extraction
+- Columns were read in the wrong order
+- The candidate's name is slightly malformed
+- Some characters are incorrectly extracted
+- Dates or numbers appear in unusual positions
 
-If the document is blank, unreadable, extremely fragmented, or does not contain enough meaningful candidate information, treat it as invalid.
+If the document clearly contains several CV sections and a coherent employment or educational profile, treat it as a valid CV despite extraction defects.
 
-When uncertain whether the document is genuinely a CV, prefer rejecting it rather than extracting unrelated skills.
-
-For every invalid document, return exactly:
+For an invalid document, return exactly:
 
 {{
   ""primaryRole"": """",
   ""skills"": []
 }}
 
-Do not extract any role or skills from an invalid document.
+Do not extract skills from an invalid document.
 
-========================
-STEP 2 — ANALYZE ONLY A CONFIRMED VALID CV
-========================
+==================================================
+STEP 2 — LANGUAGE PROCESSING
+==================================================
 
-Perform this step only after the document has passed the CV validation rules.
+Perform this step only for a confirmed valid CV.
 
-Detect the document language automatically.
+Detect the language automatically.
 
-Understand and analyze CVs written in English, Arabic, French, Spanish, German, or any other language.
+Understand the entire candidate profile even when it is written in Arabic, French, English, or mixed languages.
 
-Never reject a valid CV because of its language.
+The output must always use English JSON property names.
 
-The JSON property names and JSON structure must always remain in English.
+Translate the primary role into normalized English.
 
-Translate the extracted primary professional role into clear, normalized English.
+Translate general professional skill names into their standard English equivalents.
 
-Translate general professional skill names into their common normalized English names.
-
-Keep internationally recognized technology, software, platform, framework, product, and programming-language names unchanged.
-
-Examples include:
+Keep internationally recognized names unchanged, including:
 
 - C#
+- .NET
 - Java
 - JavaScript
 - TypeScript
 - React
 - Angular
-- SQL Server
 - Python
+- SQL
+- SQL Server
 - AutoCAD
 - SAP
 - Excel
 - Power BI
 
-Do not translate company names, university names, product names, or certification names unless translation is necessary to understand the candidate's profile.
+Do not translate company names, school names, university names, product names, or certification names unless necessary to understand their meaning.
 
-========================
-PRIMARY ROLE RULES
-========================
+==================================================
+STEP 3 — DETERMINE THE PRIMARY ROLE
+==================================================
 
-Determine exactly one primary professional role for every valid CV.
+Return exactly one primary professional role.
 
-First, look for an explicitly written:
+First look for:
 
-- Current job title
-- Most recent job title
+- Current position
+- Most recent position
+- Professional title
 - Profession
 - Professional summary
 - Career objective
-- Profile title
-- Current position
+- Profile heading
 
-If the role is written in Arabic, French, or another language, translate and normalize it into English.
-
-If no role is explicitly written, infer the most likely role only from the candidate's:
+If no explicit role exists, infer the role from:
 
 - Work experience
-- Employment history
+- Career progression
 - Responsibilities
 - Education
 - Projects
 - Qualifications
 - Certifications
-- Strongest supported skills
+- Strongest supported professional skills
 
-Choose the one role that best represents the candidate's overall professional profile.
+Choose the role that best represents the candidate's current or overall professional profile.
 
-Prefer the role supported by the candidate's:
+Prefer, in this order:
 
-- Most recent experience
-- Longest experience
-- Most relevant experience
-- Strongest repeated responsibilities
+1. The candidate's current or most recent role
+2. The role supported by the longest experience
+3. The role supported by the strongest responsibilities
+4. The role most consistent with the candidate's education and career history
 
-Do not return an empty primaryRole for a valid CV merely because the role was not directly written.
+If the candidate progressed from one role to a higher role, prefer the latest role.
 
-Do not invent a role without evidence in the CV.
+For example:
 
-Ignore seniority words such as:
+- A teacher who later became a school director should normally be classified as ""School Director"" or the closest normalized current role.
+- An accountant who later became a finance manager should normally be classified as ""Finance Manager"".
+- A developer who later became a software engineer should normally be classified as ""Software Engineer"".
+
+Ignore seniority labels such as:
 
 - Junior
 - Senior
@@ -335,7 +406,9 @@ Ignore seniority words such as:
 - Entry-Level
 - Expert
 
-Normalize similar titles into one common English role.
+Do not invent a role that is unsupported.
+
+Normalize equivalent titles into clear English.
 
 Examples:
 
@@ -343,124 +416,137 @@ Examples:
 - ""مهندس برمجيات"" becomes ""Software Engineer"".
 - ""محاسب"" becomes ""Accountant"".
 - ""معلمة اقتصاد"" becomes ""Economics Teacher"".
+- ""مديرة مدرسة"" becomes ""School Director"".
+- ""مديرة بالتكليف"" becomes ""Acting School Director"".
+- ""ناظرة عامة"" becomes ""General School Supervisor"".
 - ""Développeur web"" becomes ""Web Developer"".
 - ""Ingénieur logiciel"" becomes ""Software Engineer"".
 - ""Comptable"" becomes ""Accountant"".
+- ""Directrice d'école"" becomes ""School Director"".
 
-========================
-SKILL EXTRACTION RULES
-========================
+==================================================
+STEP 4 — EXTRACT CANDIDATE SKILLS
+==================================================
 
-Extract only skills that genuinely belong to the candidate.
+Extract only skills that belong to the candidate.
 
-Every extracted skill must be supported by the candidate's:
+A skill is supported when it appears in, or is clearly demonstrated by:
 
-- Work experience
-- Responsibilities
+- Work responsibilities
+- Professional experience
 - Projects
 - Education
 - Training
 - Certifications
+- Achievements
 - Professional summary
-- Explicit skill section
+- A genuine candidate skills section
 
-Do not extract a skill merely because its name appears somewhere in the document.
-
-Determine whether the text states or reasonably demonstrates that the candidate possesses or used the skill.
+Do not extract a skill merely because its name appears in the document.
 
 Do not extract skills from:
 
 - Job requirements
-- Desired candidate requirements
 - Vacancy descriptions
 - Interview questions
-- Suggested interview answers
+- Interview answers
 - Course contents
-- Course syllabuses
 - Learning objectives
-- Lecture material
-- Technology explanations
-- Comparisons between tools
-- References or bibliography
+- Lecture notes
+- Technical explanations
+- Tool comparisons
+- Examples unrelated to the candidate
+- References or bibliographies
 - Employer descriptions
-- Lists unrelated to the candidate
-- Certificates belonging to someone else
-- Examples contained in educational material
+- General industry information
 
-Extract only real technical, professional, administrative, educational, medical, financial, creative, communication, management, or business skills supported by the candidate's profile.
+Extract technical and non-technical professional skills when they are supported.
+
+This includes:
+
+- Technical skills
+- Administrative skills
+- Educational skills
+- Management skills
+- Financial skills
+- Medical skills
+- Creative skills
+- Communication skills
+- Leadership skills
+- Planning skills
+- Organizational skills
+
+Do not invent common skills based only on the role.
+
+For example, do not add a technology merely because it is commonly used by software developers.
+
+Do not add accounting software merely because the candidate is an accountant.
+
+Do not add teaching skills unless they are stated or demonstrated through experience and responsibilities.
+
+Normalize general skill names into English.
 
 Keep distinct technologies separate.
 
-For example:
-
-- C# and .NET should remain separate if both are supported.
-- React and JavaScript should remain separate if both are supported.
-- SQL and SQL Server should remain separate only when the CV clearly distinguishes them.
-
-Use common normalized English skill names.
-
-Do not invent skills based only on the candidate's job title.
-
-For example, do not automatically add every common accounting skill simply because the candidate is an Accountant.
-
-Do not infer technologies that are not mentioned or demonstrated.
-
-Do not include spoken languages as professional skills unless they are clearly relevant to the candidate's work.
-
-Do not include vague personality traits such as:
+Do not include vague personality descriptions such as:
 
 - Hardworking
 - Motivated
 - Honest
-- Punctual
 - Friendly
+- Punctual
 
-unless they are clearly presented as meaningful professional competencies.
+unless they are clearly presented and supported as professional competencies.
 
-========================
-YEARS OF EXPERIENCE RULES
-========================
+Do not include spoken languages as professional skills unless the CV clearly presents them as job-relevant professional abilities.
+
+==================================================
+YEARS OF EXPERIENCE
+==================================================
 
 Estimate years of experience only when supported by:
 
 - Employment dates
-- Project dates
 - Explicit durations
-- Repeated use across roles
-- Clear professional experience context
+- Project dates
+- Repeated use across dated roles
+- A clear statement of total experience
+- A clear professional context
 
-Do not assign years merely because a skill is listed.
+When a skill is supported but its duration cannot be determined, use 0.
 
-If the duration cannot be reasonably supported, return 0.
+Do not assign the candidate's total career duration to every skill automatically.
+
+For example, a candidate with 26 total years of experience does not necessarily have 26 years in every listed skill.
+
+Use the total career duration only for broad skills that are clearly demonstrated throughout most of the candidate's career.
+
+Do not double-count overlapping dates.
 
 Do not exaggerate experience.
 
-If different roles overlap, do not automatically add overlapping years twice.
+==================================================
+OUTPUT FORMAT
+==================================================
 
-========================
-OUTPUT RULES
-========================
+Return valid JSON only.
 
-Return JSON only.
+Do not use markdown.
 
-Do not return markdown.
+Do not use code fences.
 
-Do not return code fences.
+Do not return explanations or commentary.
 
-Do not return commentary.
-
-Do not explain the validation decision.
-
-Do not add properties that are not defined in the required structure.
+Do not add additional JSON properties.
 
 For a valid CV, return exactly this structure:
 
 {{
-  ""primaryRole"": ""Backend Developer"",
+  ""primaryRole"": ""School Director"",
   ""skills"": [
     {{
-      ""skillName"": ""C#"",
-      ""yearsOfExperience"": 2
+      ""skillName"": ""Educational Leadership"",
+      ""yearsOfExperience"": 0
     }}
   ]
 }}
