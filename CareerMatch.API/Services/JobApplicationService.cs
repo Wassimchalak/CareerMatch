@@ -186,6 +186,7 @@ namespace CareerMatch.API.Services
                         ja.UserId,
                         ja.JobId,
                         ja.ApplicationStatus,
+                        ja.FinalScore,
                         ja.AppliedAt,
 
                         ROW_NUMBER() OVER
@@ -209,27 +210,11 @@ namespace CareerMatch.API.Services
                     j.JobUrl,
                     ra.ApplicationStatus,
                     ra.AppliedAt,
-                    latestMatch.FinalScore AS MatchScore,
-                    latestMatch.MatchExplanation,
-                    latestMatch.Recommendation
+                    ra.FinalScore AS MatchScore
                 FROM RankedApplications ra
 
                 INNER JOIN Jobs j
                     ON ra.JobId = j.JobId
-
-                OUTER APPLY
-                (
-                    SELECT TOP 1
-                        jm.FinalScore,
-                        jm.MatchExplanation,
-                        jm.Recommendation
-                    FROM JobMatches jm
-                    WHERE jm.UserId = ra.UserId
-                        AND jm.JobId = ra.JobId
-                    ORDER BY
-                        jm.CreatedAt DESC,
-                        jm.JobMatchId DESC
-                ) latestMatch
 
                 WHERE ra.RowNumber = 1
 
