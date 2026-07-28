@@ -117,7 +117,7 @@ INVALID DOCUMENT RULE:
   ""skills"": []
 }}
 - Also return the empty result if the document is blank, unreadable, contains unrelated content, or does not include meaningful candidate information such as experience, education, projects, qualifications, responsibilities, or skills.
-- Do not treat invoices, articles, books, assignments, reports, certificates alone, job descriptions, or random text as a CV.
+- Do not treat lessons, interview questions, invoices, articles, books, assignments, reports, certificates alone, job descriptions, or random text as a CV.
 - Do not guess a role or skills from unrelated content.
 
 VALID CV RULES:
