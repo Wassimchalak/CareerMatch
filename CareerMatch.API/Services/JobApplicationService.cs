@@ -166,6 +166,7 @@ namespace CareerMatch.API.Services
                 HasCV = cv != null
             };
         }
+
 public async Task<List<JobApplicationHistoryResponse>>
     GetUserApplicationsAsync(
         int userId)
@@ -178,63 +179,27 @@ public async Task<List<JobApplicationHistoryResponse>>
         await connection
             .QueryAsync<JobApplicationHistoryResponse>(
                 @"
-                WITH RankedApplications AS
-                (
-                    SELECT
-                        ja.ApplicationId,
-                        ja.UserId,
-                        ja.JobId,
-                        ja.ApplicationStatus,
-                        ja.AppliedAt,
-
-                        ROW_NUMBER() OVER
-                        (
-                            PARTITION BY ja.JobId
-                            ORDER BY
-                                ja.AppliedAt DESC,
-                                ja.ApplicationId DESC
-                        ) AS RowNumber
-                    FROM JobApplications ja
-                    WHERE ja.UserId = @UserId
-                )
-
                 SELECT
-                    ra.ApplicationId,
+                    ja.ApplicationId,
                     j.JobId,
                     j.Title,
                     j.CompanyName,
                     j.Country,
                     j.City,
                     j.JobUrl,
-                    ra.ApplicationStatus,
-                    ra.AppliedAt,
-                    latestMatch.FinalScore AS MatchScore,
-                    latestMatch.MatchExplanation,
-                    latestMatch.Recommendation
-                FROM RankedApplications ra
-
+                    ja.ApplicationStatus,
+                    ja.AppliedAt,
+                    jm.FinalScore AS MatchScore,
+                    jm.MatchExplanation,
+                    jm.Recommendation
+                FROM JobApplications ja
                 INNER JOIN Jobs j
-                    ON j.JobId = ra.JobId
-
-                OUTER APPLY
-                (
-                    SELECT TOP 1
-                        jm.FinalScore,
-                        jm.MatchExplanation,
-                        jm.Recommendation
-                    FROM JobMatches jm
-                    WHERE jm.UserId = ra.UserId
-                        AND jm.JobId = ra.JobId
-                    ORDER BY
-                        jm.CreatedAt DESC,
-                        jm.JobMatchId DESC
-                ) latestMatch
-
-                WHERE ra.RowNumber = 1
-
-                ORDER BY
-                    ra.AppliedAt DESC,
-                    ra.ApplicationId DESC;
+                    ON ja.JobId = j.JobId
+                LEFT JOIN JobMatches jm
+                    ON jm.UserId = ja.UserId
+                    AND jm.JobId = ja.JobId
+                WHERE ja.UserId = @UserId
+                ORDER BY ja.AppliedAt DESC;
                 ",
                 new
                 {
