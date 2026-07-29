@@ -672,82 +672,6 @@ CANDIDATE SKILLS:
                     DocumentJobDescriptionLimit
                 );
 
-           string prompt = $@"
-Write a truthful, personalized cover letter.
-
-LANGUAGE DETECTION:
-
-- Detect the primary language of the JOB DESCRIPTION.
-- Use ONLY the JOB DESCRIPTION to determine the output language.
-- Ignore the language of the CV, candidate skills, job title, company name, technology names, product names, and certification names when detecting the language.
-- Technology names such as .NET, C#, SQL Server, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, SAP, AutoCAD, and Microsoft Excel must not affect language detection.
-
-OUTPUT LANGUAGE:
-
-- Write the ENTIRE cover letter in the same language as the JOB DESCRIPTION.
-- If the job description contains multiple languages, use the language that represents most of its meaningful content.
-- Do not translate the cover letter into another language.
-- Do not mix multiple languages in the same cover letter.
-- Keep official technology names, product names, company names, university names, certification names, and abbreviations in their standard form when appropriate.
-- Use natural, professional writing conventions for the detected language.
-
-Rules:
-- Use only facts supported by the CV and candidate skills.
-- Do not invent, exaggerate, or assume any experience, skills, achievements, education, certifications, or qualifications.
-- Mention the exact job title and company name.
-- Connect the candidate's strongest supported qualifications to the job requirements.
-- Use a professional, confident, and natural tone appropriate for the detected language.
-- Keep the letter between 220 and 300 words.
-- Do not use bullet points, markdown, placeholders, commentary, or explanations.
-- Return only the complete cover letter.
-
-JOB:
-{jobTitle} at {companyName}
-
-JOB DESCRIPTION:
-{preparedJobDescription}
-
-CANDIDATE SKILLS:
-{candidateSkillsText}
-
-CV:
-{CleanText(candidateCVText)}";
-            return await SendPromptToOpenAIAsync(prompt);
-        }
-
-        /// <summary>
-        /// Sends a prompt to the OpenAI Responses API.
-        ///
-        /// This version uses one model only:
-        /// OpenAI:Model from appsettings.json.
-        /// </summary>
-        // Add this public method inside AIService, before SendPromptToOpenAIAsync.
-
-        /// <summary>
-        /// Generates exactly five theoretical and five practical interview questions.
-        /// </summary>
-       public async Task<AIInterviewQuestionsResult>
-    GenerateInterviewQuestionsAsync(
-        string jobTitle,
-        string companyName,
-        string jobDescription)
-{
-    // Reject an empty job description because it is the main generation source.
-    if (string.IsNullOrWhiteSpace(jobDescription))
-    {
-        throw new ArgumentException(
-            "Job description cannot be empty."
-        );
-    }
-
-    // Shortens the description using the existing document limit.
-    string preparedJobDescription =
-        PrepareJobDescription(
-            jobDescription,
-            DocumentJobDescriptionLimit
-        );
-
-    // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
 string prompt = $@"
 Generate interview preparation for this exact job.
 
@@ -840,16 +764,8 @@ JOB DESCRIPTION:
 ---BEGIN JOB DESCRIPTION---
 {preparedJobDescription}
 ---END JOB DESCRIPTION---";
-JOB TITLE:
-{jobTitle}
 
-COMPANY:
-{companyName}
-
-JOB DESCRIPTION:
-{preparedJobDescription}"
-
-   
+    // Sends one request to the existing OpenAI Responses API helper.
     string outputText =
         await SendPromptToOpenAIAsync(prompt);
 
