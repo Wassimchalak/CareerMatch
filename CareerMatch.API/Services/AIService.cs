@@ -847,9 +847,9 @@ COMPANY:
 {companyName}
 
 JOB DESCRIPTION:
-{preparedJobDescription}";
+{preparedJobDescription}"
 
-    // Sends one request to the existing OpenAI Responses API helper.
+   
     string outputText =
         await SendPromptToOpenAIAsync(prompt);
 
