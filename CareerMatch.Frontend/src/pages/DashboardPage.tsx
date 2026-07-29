@@ -1063,8 +1063,9 @@ SetStateAction<Set<number>>
             );
 
             /*
-                Keep the score hidden when matching fails.
-                This includes the backend's no-CV 400 response.
+                Do not reveal a score when matching fails.
+                When no CV exists, the backend returns HTTP 400
+                and its message is displayed in the red alert.
             */
             updateIdSet(
                 setRevealedMatchJobIds,

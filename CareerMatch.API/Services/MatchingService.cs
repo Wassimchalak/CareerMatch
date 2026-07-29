@@ -59,21 +59,9 @@ namespace CareerMatch.API.Services
 
             if (cv == null)
             {
-                foreach (var job in jobs)
-                {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore = 0,
-                            MatchExplanation =
-                                "No uploaded CV was found.",
-                            Recommendation =
-                                "Upload a CV before calculating job matches."
-                        };
-                }
-
-                return result;
+                throw new InvalidOperationException(
+                    "Please upload a CV before calculating your match score."
+                );
             }
 
             var cvSkills =

@@ -31,30 +31,31 @@ namespace CareerMatch.API.Controllers
             return Ok(jobs);
         }
 
-      [HttpPost("calculate-matches")]
-public async Task<ActionResult<List<JobSearchResponse>>> CalculateMatches(
-    [FromBody] CalculateMatchesRequest request)
-{
-    int userId = GetAuthenticatedUserId();
-
-    try
-    {
-        var matchedJobs =
-            await _jobSearchService.CalculateMatchesAsync(
-                userId,
-                request
-            );
-
-        return Ok(matchedJobs);
-    }
-    catch (InvalidOperationException ex)
-    {
-        return BadRequest(new
+        [HttpPost("calculate-matches")]
+        public async Task<ActionResult<List<JobSearchResponse>>>
+            CalculateMatches(
+                [FromBody] CalculateMatchesRequest request)
         {
-            message = ex.Message
-        });
-    }
-}
+            int userId = GetAuthenticatedUserId();
+
+            try
+            {
+                var matchedJobs =
+                    await _jobSearchService.CalculateMatchesAsync(
+                        userId,
+                        request
+                    );
+
+                return Ok(matchedJobs);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
 
         private int GetAuthenticatedUserId()
         {

@@ -1071,14 +1071,14 @@ function SavedJobsPage() {
                                     CV
                                 </span>
 
-                                <span className="apply-option-copy">
-                                    <strong>Refine CV</strong>
-                                    <small>
-                                        {applyModal.hasCV
-                                            ? "Tailor your latest CV to this role and download it immediately."
-                                            : "Upload a CV to CareerMatch to unlock CV refinement."}
-                                    </small>
-                                </span>
+                               <span className="apply-option-copy">
+    <strong>Refine CV</strong>
+    <small>
+        {applyModal.hasCV
+            ? "Tailor the CV used for this application and download it immediately."
+            : "Upload a CV to CareerMatch to unlock CV refinement."}
+    </small>
+</span>
 
                                 <span className="apply-option-action">
                                     {!applyModal.hasCV
