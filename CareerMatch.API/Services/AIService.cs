@@ -748,17 +748,24 @@ CV:
         );
 
     // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
-    string prompt = $@"
+string prompt = $@"
 Generate interview preparation for this exact job.
 
-LANGUAGE INSTRUCTIONS:
-- Write every question,howToAnswer in English only.
-- Do not detect or use the language of the job description.
-- Even if the job description is written in another language, translate the relevant meaning and generate the complete output in English.
-- Keep technical terms such as programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, and product names in their commonly used original form.
+LANGUAGE DETECTION AND OUTPUT RULES:
+
+- Detect the primary natural language using ONLY the job description.
+- Do not use the job title, company name, candidate information, or CV to detect the language.
+- Determine the language from the main descriptive sentences, responsibilities, requirements, and qualifications.
+- Ignore programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, product names, abbreviations, and code when detecting the language.
+- English technical terms inside a non-English job description must not cause the output to be written in English.
+- If the job description contains multiple languages, use the language that represents most of the meaningful job content.
+- After detecting the primary language, write every question and every howToAnswer value entirely in that language.
+- Never translate the output into another language.
+- Never mix languages except for technical terms, official product names, company names, and other proper nouns that are normally written in their original form.
 - Keep all JSON property names exactly as shown below in English.
 
 Return JSON only in this exact format:
+
 {{
   ""theoreticalQuestions"": [
     {{
@@ -776,25 +783,63 @@ Return JSON only in this exact format:
   ]
 }}
 
-REQUIREMENTS:
-- howToAnswer must explain exactly how the applicant should answer during the interview.
+QUESTION REQUIREMENTS:
+
+- Generate exactly 5 theoretical questions.
+- Number the theoretical questions from 1 to 5.
+- Generate exactly 5 practical questions.
+- Number the practical questions from 6 to 10.
+- Make every question specifically relevant to the supplied job description.
+- Do not generate generic questions when the job description provides enough specific information.
+- Cover the most important responsibilities, required skills, technologies, business knowledge, and seniority expectations.
+- Avoid duplicate or substantially similar questions.
+
+HOW-TO-ANSWER REQUIREMENTS:
+
+- howToAnswer must explain exactly how the applicant should approach the answer during the interview.
 - Explain what the interviewer is evaluating.
 - Describe the ideal structure of the response.
 - Mention the important technical or business concepts that should be included.
 - Mention common mistakes or weak answers to avoid when appropriate.
 - For practical questions, explain the expected approach and reasoning instead of giving a complete solution.
 - Teach the applicant how to think rather than providing a script to memorize.
+- Use clear, natural, professional language.
 - Keep each howToAnswer under 180 words.
-- Preserve valid JSON escaping when including quotation marks, line breaks, code, or special characters.
+
+FACTUAL RULES:
+
+- Base the questions on the supplied job description.
+- Do not invent technologies, responsibilities, qualifications, or business requirements that are not stated or reasonably implied by the job description.
+- You may test foundational knowledge directly related to the stated role and technologies.
+- Do not assume the applicant has experience that is not provided.
+
+JSON RULES:
+
+- Return exactly two top-level properties:
+  theoreticalQuestions
+  practicalQuestions
+- Each array must contain exactly 5 objects.
+- Every object must contain exactly these properties:
+  questionNumber
+  question
+  howToAnswer
+- questionNumber must be an integer, not a string.
+- Preserve valid JSON escaping when including quotation marks, line breaks, code, backslashes, or special characters.
+- Do not include trailing commas.
 - Never translate or rename these JSON properties:
   theoreticalQuestions,
   practicalQuestions,
   questionNumber,
   question,
   howToAnswer.
-- Never return markdown fences, notes, commentary, headings outside the JSON, or extra text.
+- Never return markdown fences.
+- Never return notes, commentary, explanations, or headings outside the JSON.
 - Return valid JSON only.
 
+JOB DESCRIPTION:
+---BEGIN JOB DESCRIPTION---
+{preparedJobDescription}
+---END JOB DESCRIPTION---";
 JOB TITLE:
 {jobTitle}
 
