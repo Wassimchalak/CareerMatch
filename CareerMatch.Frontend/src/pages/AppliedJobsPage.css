@@ -58,24 +58,13 @@
     gap: 10px;
 }
 
+/* Uses the exact same style as the other primary buttons */
 .applied-job-interview-button {
     min-width: 230px;
-    border-color: rgba(155, 108, 255, 0.48);
-    background: linear-gradient(
-        135deg,
-        rgba(155, 108, 255, 0.2),
-        rgba(236, 72, 153, 0.15)
-    );
-}
-
-.applied-job-interview-button:hover:not(:disabled) {
-    border-color: rgba(186, 148, 255, 0.9);
-    transform: translateY(-1px);
 }
 
 .applied-job-interview-button:disabled {
     cursor: wait;
-    opacity: 0.65;
 }
 
 .applied-job-remove-button {
@@ -87,9 +76,7 @@
     );
 }
 
-.applied-job-remove-button:hover:not(
-        :disabled
-    ) {
+.applied-job-remove-button:hover:not(:disabled) {
     border-color: rgba(
         255,
         105,
@@ -99,8 +86,11 @@
 }
 
 @media (max-width: 640px) {
-    .applied-job-actions
-        .dashboard-primary-button {
+    .applied-job-actions {
+        flex-direction: column;
+    }
+
+    .applied-job-actions .dashboard-primary-button {
         width: 100%;
     }
 

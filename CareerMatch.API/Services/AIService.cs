@@ -672,34 +672,26 @@ CANDIDATE SKILLS:
                     DocumentJobDescriptionLimit
                 );
 
-           string prompt = $@"
-Write a truthful, personalized cover letter.
-
-LANGUAGE DETECTION:
-
-- Detect the primary language of the JOB DESCRIPTION.
-- Use ONLY the JOB DESCRIPTION to determine the output language.
-- Ignore the language of the CV, candidate skills, job title, company name, technology names, product names, and certification names when detecting the language.
-- Technology names such as .NET, C#, SQL Server, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, SAP, AutoCAD, and Microsoft Excel must not affect language detection.
+string prompt = $@"
+Write a truthful, personalized cover letter in English.
 
 OUTPUT LANGUAGE:
 
-- Write the ENTIRE cover letter in the same language as the JOB DESCRIPTION.
-- If the job description contains multiple languages, use the language that represents most of its meaningful content.
-- Do not translate the cover letter into another language.
-- Do not mix multiple languages in the same cover letter.
+- Write the entire cover letter only in English.
+- Do not detect or follow the language of the job description.
+- If the job description contains another language, understand its meaning but write the final cover letter in English.
+- Do not mix English with other languages.
 - Keep official technology names, product names, company names, university names, certification names, and abbreviations in their standard form when appropriate.
-- Use natural, professional writing conventions for the detected language.
 
 Rules:
 - Use only facts supported by the CV and candidate skills.
 - Do not invent, exaggerate, or assume any experience, skills, achievements, education, certifications, or qualifications.
 - Mention the exact job title and company name.
 - Connect the candidate's strongest supported qualifications to the job requirements.
-- Use a professional, confident, and natural tone appropriate for the detected language.
+- Use a professional, confident, and natural English tone.
 - Keep the letter between 220 and 300 words.
 - Do not use bullet points, markdown, placeholders, commentary, or explanations.
-- Return only the complete cover letter.
+- Return only the complete cover letter in English.
 
 JOB:
 {jobTitle} at {companyName}
