@@ -514,76 +514,135 @@ JOBS:
                     DocumentJobDescriptionLimit
                 );
 
-            string prompt = $@"
-Rewrite this CV for the target job while preserving complete factual accuracy.
+           string prompt = $@"
+You are refining a CV for a target job.
 
-LANGUAGE VALIDATION:
+Follow the steps below in the exact order.
 
-- The original CV must be written primarily in English or French.
-- If the original CV is primarily written in any other language (including Arabic), do NOT rewrite it.
-- Instead return exactly:
+STEP 1 — DETECT AND LOCK THE CV LANGUAGE:
+
+Read ONLY the text inside ORIGINAL CV.
+
+Determine whether its main professional content is written in:
+
+- English
+- French
+
+The main professional content includes:
+
+- Professional summary
+- Work experience
+- Education
+- Projects
+- Responsibilities
+- Achievements
+- Descriptive sentences
+
+Do not use any other section of this prompt for language detection.
+
+Important:
+
+- Ignore the language of the job title.
+- Ignore the language of the company name.
+- Ignore the language of the job description.
+- Ignore the language of CANDIDATE SKILLS.
+- Ignore technology names and technical terms.
+- English technology names do not make a French CV an English CV.
+- Words such as C#, .NET, Java, React, SQL Server, Git, Docker, Azure, AWS, HTML, CSS, JavaScript, Python, SAP, AutoCAD, and Microsoft Excel must not influence language detection.
+
+After detecting the language, lock it as the required output language.
+
+Mandatory mapping:
+
+- French original CV = complete refined CV in French.
+- English original CV = complete refined CV in English.
+
+If the original CV is primarily in another language, return exactly:
 
 INVALID_CV_LANGUAGE
 
-LANGUAGE RULES:
+STEP 2 — REFINE IN THE LOCKED LANGUAGE:
 
-- Detect the language using ONLY the ORIGINAL CV.
-- Ignore the language of the job title and job description.
-- If the original CV is in English, rewrite the entire CV in English.
-- If the original CV is in French, rewrite the entire CV in French.
-- If the CV contains both English and French, use the language that represents most of the professional content.
-- Never translate an English CV into French.
-- Never translate a French CV into English.
-- Never rewrite the CV in Arabic or any other language.
-- Keep official technology names exactly as written (such as .NET, C#, SQL Server, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, HTML, CSS, Node.js, SAP, AutoCAD, Microsoft Excel).
+Rewrite the complete CV using only the language detected from the ORIGINAL CV.
 
-CONTENT RULES:
+If the detected language is French:
 
+- Write every normal heading in French.
+- Write the professional summary in French.
+- Write all experience descriptions in French.
+- Write all education and project descriptions in French.
+- Use natural and professional French.
+- Do not translate the CV into English.
+- Do not use headings such as Professional Summary, Work Experience, Education, or Skills.
+- Prefer headings such as Profil professionnel, Expérience professionnelle, Formation, Compétences, Projets, Certifications, and Langues when relevant.
+
+If the detected language is English:
+
+- Write every normal heading and description in English.
+- Do not translate the CV into French.
+
+Official technology names, product names, company names, university names, certification names, and abbreviations may remain in their original form.
+
+FACTUAL ACCURACY:
+
+- Preserve complete factual accuracy.
 - Do not invent information.
-- Do not remove information.
-- Do not add new experience.
-- Do not add projects.
-- Do not add certifications.
 - Do not add skills.
+- Do not add experience.
+- Do not add projects.
+- Do not add education.
+- Do not add certifications.
 - Do not add achievements.
 - Do not add employers.
-- Do not add education.
-- Do not change dates.
-- Do not change numbers.
+- Do not add dates.
+- Do not add numbers.
 - Do not change years of experience.
 - Do not exaggerate qualifications.
+- Do not remove meaningful factual information.
 
 REFINEMENT RULES:
 
-- Improve wording, grammar, clarity, formatting, and ATS readability.
-- Improve professional writing quality.
-- Reorganize content for better readability when appropriate.
-- Emphasize existing qualifications that are genuinely relevant to the job.
-- Keep a clean single-column resume structure.
-- Use clear section headings.
+- Improve grammar, wording, clarity, structure, and ATS readability.
+- Correct language and spelling mistakes.
+- Emphasize only existing qualifications relevant to the target job.
+- Reorganize existing information when useful.
+- Use a clean single-column CV structure.
+- Use clear headings.
 - Use concise professional bullet points.
-- Preserve all factual information.
+- Use professional terminology appropriate for the locked language.
 
 OUTPUT RULES:
 
-- Return ONLY the rewritten CV.
-- Do not return markdown.
-- Do not return code fences.
-- Do not include explanations.
-- Do not include comments.
+- Before generating the response, verify that its language matches the ORIGINAL CV.
+- A French CV must produce a French response.
+- An English CV must produce an English response.
+- The job description language must never override the CV language.
+- Return only the complete refined CV.
+- Do not return the detected language.
+- Do not return explanations.
+- Do not return commentary.
+- Do not use markdown code fences.
 - Do not include placeholders.
 
-JOB:
+ORIGINAL CV:
+---BEGIN ORIGINAL CV---
+{CleanText(originalCVText)}
+---END ORIGINAL CV---
+
+TARGET JOB:
+---BEGIN TARGET JOB---
 {jobTitle} at {companyName}
+---END TARGET JOB---
 
 JOB DESCRIPTION:
+---BEGIN JOB DESCRIPTION---
 {preparedJobDescription}
+---END JOB DESCRIPTION---
 
 CANDIDATE SKILLS:
+---BEGIN CANDIDATE SKILLS---
 {cvSkillsText}
-
-ORIGINAL CV:
-{CleanText(originalCVText)}";
+---END CANDIDATE SKILLS---";
 
             return await SendPromptToOpenAIAsync(prompt);
         }
@@ -613,23 +672,33 @@ ORIGINAL CV:
                     DocumentJobDescriptionLimit
                 );
 
-            string prompt = $@"
+           string prompt = $@"
 Write a truthful, personalized cover letter.
 
-FIRST:
-- Write the ENTIRE cover letter in English only.
-- Do not detect or use the language of the job description.
-- Even if the job description is written in another language, write the complete cover letter in natural, professional English.
-- Keep technical terms such as .NET, C#, SQL, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, and similar technologies in their original form.
+LANGUAGE DETECTION:
+
+- Detect the primary language of the JOB DESCRIPTION.
+- Use ONLY the JOB DESCRIPTION to determine the output language.
+- Ignore the language of the CV, candidate skills, job title, company name, technology names, product names, and certification names when detecting the language.
+- Technology names such as .NET, C#, SQL Server, React, Azure, AWS, Java, JavaScript, Python, Docker, Kubernetes, Git, REST APIs, SAP, AutoCAD, and Microsoft Excel must not affect language detection.
+
+OUTPUT LANGUAGE:
+
+- Write the ENTIRE cover letter in the same language as the JOB DESCRIPTION.
+- If the job description contains multiple languages, use the language that represents most of its meaningful content.
+- Do not translate the cover letter into another language.
+- Do not mix multiple languages in the same cover letter.
+- Keep official technology names, product names, company names, university names, certification names, and abbreviations in their standard form when appropriate.
+- Use natural, professional writing conventions for the detected language.
 
 Rules:
 - Use only facts supported by the CV and candidate skills.
-- Do not invent, exaggerate, or assume any experience, skills, or achievements.
+- Do not invent, exaggerate, or assume any experience, skills, achievements, education, certifications, or qualifications.
 - Mention the exact job title and company name.
-- Connect the candidate's strongest real qualifications to the job requirements.
+- Connect the candidate's strongest supported qualifications to the job requirements.
 - Use a professional, confident, and natural tone appropriate for the detected language.
 - Keep the letter between 220 and 300 words.
-- Do not use bullet points, markdown, placeholders, or commentary.
+- Do not use bullet points, markdown, placeholders, commentary, or explanations.
 - Return only the complete cover letter.
 
 JOB:

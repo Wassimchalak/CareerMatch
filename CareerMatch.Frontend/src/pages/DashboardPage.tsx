@@ -2440,10 +2440,6 @@ groupHeading: (base) => ({
                                         Part-time
                                     </option>
 
-                                    <option value="Contract">
-                                        Contract
-                                    </option>
-
                                     <option value="Internship">
                                         Internship
                                     </option>
