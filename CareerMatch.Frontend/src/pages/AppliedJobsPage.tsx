@@ -36,6 +36,11 @@ function AppliedJobsPage() {
         setRemovingApplicationIds,
     ] = useState<Set<number>>(new Set());
 
+    const [
+        generatingInterviewApplicationIds,
+        setGeneratingInterviewApplicationIds,
+    ] = useState<Set<number>>(new Set());
+
     const [successMessage, setSuccessMessage] =
         useState("");
 
@@ -164,6 +169,122 @@ function AppliedJobsPage() {
             "_blank",
             "noopener,noreferrer"
         );
+    };
+
+
+    const getDownloadFileName = (
+        contentDisposition: string | undefined,
+        fallbackFileName: string
+    ) => {
+        if (!contentDisposition) {
+            return fallbackFileName;
+        }
+
+        const encodedFileNameMatch =
+            contentDisposition.match(
+                /filename\*=UTF-8''([^;]+)/i
+            );
+
+        if (encodedFileNameMatch?.[1]) {
+            return decodeURIComponent(
+                encodedFileNameMatch[1]
+            );
+        }
+
+        const fileNameMatch =
+            contentDisposition.match(
+                /filename=\"?([^";]+)\"?/i
+            );
+
+        return fileNameMatch?.[1]?.trim() ||
+            fallbackFileName;
+    };
+
+    const handlePracticeInterviewQuestions = async (
+        applicationId: number
+    ) => {
+        if (
+            generatingInterviewApplicationIds.has(
+                applicationId
+            )
+        ) {
+            return;
+        }
+
+        setSuccessMessage("");
+        setErrorMessage("");
+
+        setGeneratingInterviewApplicationIds(
+            (currentIds) => {
+                const updatedIds =
+                    new Set(currentIds);
+
+                updatedIds.add(applicationId);
+
+                return updatedIds;
+            }
+        );
+
+        try {
+            const response = await api.post<Blob>(
+                "/GeneratedInterviewQuestions/generate",
+                { applicationId },
+                { responseType: "blob" }
+            );
+
+            const contentDisposition =
+                response.headers[
+                    "content-disposition"
+                ] as string | undefined;
+
+            const fileName = getDownloadFileName(
+                contentDisposition,
+                "interview-preparation.pdf"
+            );
+
+            const downloadUrl =
+                window.URL.createObjectURL(
+                    response.data
+                );
+
+            const downloadLink =
+                document.createElement("a");
+
+            downloadLink.href = downloadUrl;
+            downloadLink.download = fileName;
+            document.body.appendChild(
+                downloadLink
+            );
+            downloadLink.click();
+            downloadLink.remove();
+            window.URL.revokeObjectURL(
+                downloadUrl
+            );
+
+            setSuccessMessage(
+                "Your interview preparation PDF was downloaded."
+            );
+        } catch (error) {
+            setErrorMessage(
+                getErrorMessage(
+                    error,
+                    "Interview questions could not be generated."
+                )
+            );
+        } finally {
+            setGeneratingInterviewApplicationIds(
+                (currentIds) => {
+                    const updatedIds =
+                        new Set(currentIds);
+
+                    updatedIds.delete(
+                        applicationId
+                    );
+
+                    return updatedIds;
+                }
+            );
+        }
     };
 
     const handleRemoveApplication = async (
@@ -523,6 +644,11 @@ function AppliedJobsPage() {
                                             job.matchScore !==
                                                 undefined;
 
+                                        const isGeneratingInterview =
+                                            generatingInterviewApplicationIds.has(
+                                                job.applicationId
+                                            );
+
                                         return (
                                             <article
                                                 key={
@@ -628,6 +754,23 @@ function AppliedJobsPage() {
                                                         >
                                                             Open
                                                             Job
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="dashboard-primary-button applied-job-interview-button"
+                                                            disabled={
+                                                                isGeneratingInterview
+                                                            }
+                                                            onClick={() =>
+                                                                handlePracticeInterviewQuestions(
+                                                                    job.applicationId
+                                                                )
+                                                            }
+                                                        >
+                                                            {isGeneratingInterview
+                                                                ? "Generating..."
+                                                                : "Practice Interview Questions"}
                                                         </button>
 
                                                         <button

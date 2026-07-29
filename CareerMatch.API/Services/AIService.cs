@@ -748,20 +748,18 @@ CV:
         );
 
     // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
-   string prompt = $@"
+  string prompt = $@"
 Generate interview preparation for this exact job.
 
-LANGUAGE DETECTION AND OUTPUT RULES:
+LANGUAGE AND OUTPUT RULES:
 
-- Detect the primary natural language using ONLY the job description.
-- Do not use the job title, company name, candidate information, or CV to detect the language.
-- Determine the language from the main descriptive sentences, responsibilities, requirements, and qualifications.
-- Ignore programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, product names, abbreviations, and code when detecting the language.
-- English technical terms inside a non-English job description must not cause the output to be written in English.
-- If the job description contains multiple languages, use the language that represents most of the meaningful job content.
-- After detecting the primary language, write every question and every howToAnswer value entirely in that language.
-- Never translate the output into another language.
-- Never mix languages except for technical terms, official product names, company names, and other proper nouns that are normally written in their original form.
+- Write every question and every howToAnswer value entirely in English.
+- Always generate the interview preparation in English, regardless of the language used in the job description.
+- Do not detect or follow the language of the job description.
+- Translate the meaning of non-English job descriptions into natural, professional English when creating the questions and answering guidance.
+- Keep technical terms such as programming languages, frameworks, databases, cloud services, tools, libraries, APIs, protocols, product names, abbreviations, and code in their commonly used original form.
+- Keep official company names, product names, certification names, and proper nouns in their original form when appropriate.
+- Do not mix languages except for official names, technical terms, and proper nouns that are normally written in their original form.
 - Keep all JSON property names exactly as shown below in English.
 
 Return JSON only in this exact format:
@@ -770,15 +768,15 @@ Return JSON only in this exact format:
   ""theoreticalQuestions"": [
     {{
       ""questionNumber"": 1,
-      ""question"": ""Question written in the detected job-description language."",
-      ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
+      ""question"": ""Theoretical interview question written in English."",
+      ""howToAnswer"": ""Answering guidance written in English.""
     }}
   ],
   ""practicalQuestions"": [
     {{
       ""questionNumber"": 6,
-      ""question"": ""Practical question written in the detected job-description language."",
-      ""howToAnswer"": ""Answering guidance written in the detected job-description language.""
+      ""question"": ""Practical interview question written in English."",
+      ""howToAnswer"": ""Answering guidance written in English.""
     }}
   ]
 }}
@@ -803,7 +801,7 @@ HOW-TO-ANSWER REQUIREMENTS:
 - Mention common mistakes or weak answers to avoid when appropriate.
 - For practical questions, explain the expected approach and reasoning instead of giving a complete solution.
 - Teach the applicant how to think rather than providing a script to memorize.
-- Use clear, natural, professional language.
+- Use clear, natural, professional English.
 - Keep each howToAnswer under 180 words.
 
 FACTUAL RULES:
@@ -840,7 +838,6 @@ JOB DESCRIPTION:
 ---BEGIN JOB DESCRIPTION---
 {preparedJobDescription}
 ---END JOB DESCRIPTION---";
-
     // Sends one request to the existing OpenAI Responses API helper.
     string outputText =
         await SendPromptToOpenAIAsync(prompt);
