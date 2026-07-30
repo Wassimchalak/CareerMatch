@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import CreatableSelect from "react-select/creatable";
 import type {
     ChangeEvent,
@@ -272,7 +277,6 @@ interface AppliedJobResponse {
     applicationId: number;
     jobId: number;
 }
-
 const initialSearchForm: JobSearchForm = {
     country: "",
     city: "",
@@ -384,6 +388,7 @@ const readStoredRevealedMatchJobIds = () => {
 function DashboardPage() {
     const navigate = useNavigate();
     const location = useLocation();
+    const errorMessageRef = useRef<HTMLDivElement | null>(null);
     const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
     const [cvUploadMessageIndex, setCvUploadMessageIndex] =
         useState(0);
@@ -467,6 +472,16 @@ function DashboardPage() {
     useState<Set<number>>(new Set());
     const [noSuitableMatches, setNoSuitableMatches] =
     useState(false);
+    useEffect(() => {
+    if (!errorMessage || !errorMessageRef.current) {
+        return;
+    }
+
+    errorMessageRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+    });
+}, [errorMessage]);
 useEffect(() => {
     if (!searchingJobs) {
         setLoadingMessageIndex(0);
@@ -1612,18 +1627,19 @@ const handleToggleJobDescription = (jobId: number) => {
                 </header>
 
                 <section className="dashboard-content">
-                    {errorMessage && (
-                        <div
-                            className="dashboard-card"
-                            role="alert"
-                            style={{
-                                borderColor:
-                                    "rgba(255, 105, 135, 0.45)",
-                            }}
-                        >
-                            {errorMessage}
-                        </div>
-                    )}
+                            {errorMessage && (
+                    <div
+                        ref={errorMessageRef}
+                        className="dashboard-card"
+                        role="alert"
+                        style={{
+                            borderColor:
+                                "rgba(255, 105, 135, 0.45)",
+                        }}
+                    >
+                        {errorMessage}
+                    </div>
+                )}
 
                     {successMessage && (
                         <div
