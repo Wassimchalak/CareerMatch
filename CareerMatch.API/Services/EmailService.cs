@@ -1,4 +1,4 @@
-```csharp
+
 using Resend;
 
 namespace CareerMatch.API.Services
