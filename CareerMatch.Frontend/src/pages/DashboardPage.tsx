@@ -1021,105 +1021,121 @@ const handleToggleJobDescription = (jobId: number) => {
         }
     };
 
-    const handleCalculateAllMatches = async () => {
-        if (calculatingAllScores || jobs.length === 0) {
-            return;
-        }
+   const handleCalculateAllMatches = async () => {
+    if (calculatingAllScores || jobs.length === 0) {
+        return;
+    }
 
-        clearMessages();
-        setNoSuitableMatches(false);
-        setCalculatingAllScores(true);
+    clearMessages();
+    setNoSuitableMatches(false);
+    setCalculatingAllScores(true);
 
-        try {
-            const response = await api.post<unknown>(
-                "/JobSearch/calculate-matches",
-                {
-                    jobIds: jobs.map((job) => job.jobId),
-                }
-            );
+    try {
+        const response = await api.post<unknown>(
+            "/JobSearch/calculate-matches",
+            {
+                jobIds: jobs.map((job) => job.jobId),
+            }
+        );
 
-            const calculatedMatches =
-                normalizeMatchResponse(response.data);
+        const calculatedMatches =
+            normalizeMatchResponse(response.data);
 
-            const matchesByJobId = new Map<number, MatchResultResponse>(
+        const matchesByJobId =
+            new Map<number, MatchResultResponse>(
                 calculatedMatches.map((match) => [
                     match.jobId,
                     match,
                 ])
             );
 
-            const filteredJobs = jobs
-                .map((job) => {
-                    const calculatedMatch =
-                        matchesByJobId.get(job.jobId);
+        const filteredJobs: JobSearchResponse[] = [];
 
-                    if (!calculatedMatch) {
-                        return null;
-                    }
+        for (const job of jobs) {
+            const calculatedMatch =
+                matchesByJobId.get(job.jobId);
 
-                    return {
-                        ...job,
-                        matchScore: calculatedMatch.matchScore,
-                        matchExplanation:
-                            calculatedMatch.matchExplanation,
-                        recommendation:
-                            calculatedMatch.recommendation,
-                        matchStatus: "calculated",
-                    };
-                })
-                .filter(
-                    (job): job is JobSearchResponse =>
-                        job !== null &&
-                        job.matchScore !== null &&
-                        job.matchScore >= 60
-                )
-                .sort(
-                    (firstJob, secondJob) =>
-                        (secondJob.matchScore ?? 0) -
-                        (firstJob.matchScore ?? 0)
-                );
-
-            setJobs(filteredJobs);
-
-            sessionStorage.setItem(
-                SEARCH_JOBS_STORAGE_KEY,
-                JSON.stringify(filteredJobs)
-            );
-
-            if (filteredJobs.length === 0) {
-                setNoSuitableMatches(true);
-                setRevealedMatchJobIds(new Set());
-                return;
+            if (!calculatedMatch) {
+                continue;
             }
 
-            setRevealedMatchJobIds(
-                new Set(
-                    filteredJobs.map((job) => job.jobId)
-                )
-            );
-        } catch (error) {
+            if (calculatedMatch.matchScore < 60) {
+                continue;
+            }
+
+            const updatedJob: JobSearchResponse = {
+                ...job,
+                matchScore:
+                    calculatedMatch.matchScore,
+                matchExplanation:
+                    calculatedMatch.matchExplanation,
+                recommendation:
+                    calculatedMatch.recommendation,
+                matchStatus: "calculated",
+            };
+
+            filteredJobs.push(updatedJob);
+        }
+
+        filteredJobs.sort(
+            (firstJob, secondJob) =>
+                (secondJob.matchScore ?? 0) -
+                (firstJob.matchScore ?? 0)
+        );
+
+        setJobs(filteredJobs);
+
+        sessionStorage.setItem(
+            SEARCH_JOBS_STORAGE_KEY,
+            JSON.stringify(filteredJobs)
+        );
+
+        if (filteredJobs.length === 0) {
+            setNoSuitableMatches(true);
             setRevealedMatchJobIds(new Set());
 
-            const backendMessage = getErrorMessage(
-                error,
-                "The match scores could not be calculated."
+            sessionStorage.removeItem(
+                REVEALED_MATCHES_STORAGE_KEY
             );
 
-            if (
-                backendMessage
-                    .toLowerCase()
-                    .includes("cv")
-            ) {
-                setErrorMessage(
-                    "Please upload a CV before calculating your best matches."
-                );
-            } else {
-                setErrorMessage(backendMessage);
-            }
-        } finally {
-            setCalculatingAllScores(false);
+            return;
         }
-    };
+
+        const revealedJobIds = new Set(
+            filteredJobs.map((job) => job.jobId)
+        );
+
+        setRevealedMatchJobIds(revealedJobIds);
+
+        sessionStorage.setItem(
+            REVEALED_MATCHES_STORAGE_KEY,
+            JSON.stringify(
+                Array.from(revealedJobIds)
+            )
+        );
+    } catch (error) {
+        setRevealedMatchJobIds(new Set());
+
+        const backendMessage = getErrorMessage(
+            error,
+            "The match scores could not be calculated."
+        );
+
+        if (
+            backendMessage
+                .toLowerCase()
+                .includes("cv")
+        ) {
+            setErrorMessage(
+                "Please upload a CV before calculating your best matches."
+            );
+        } else {
+            setErrorMessage(backendMessage);
+        }
+    } finally {
+        setCalculatingAllScores(false);
+    }
+};
 
     const handleToggleSavedJob = async (
         jobId: number
