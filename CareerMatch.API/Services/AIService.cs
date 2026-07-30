@@ -21,7 +21,7 @@ namespace CareerMatch.API.Services
     {
         // Maximum number of job-description characters sent during matching.
         // Keeping this small reduces prompt size, token usage, and response time.
-        private const int MatchDescriptionLimit = 1800;
+        private const int MatchDescriptionLimit = 3000;
 
         // A slightly larger limit is used for CV rewriting and cover letters,
         // where more job context helps produce better writing.
@@ -251,7 +251,6 @@ DOCUMENT:
 
         /// <summary>
         /// Extracts a job's main role and required skills.
-        ///
         /// This method remains available for CV refinement and cover-letter features,
         /// even though live job matching no longer depends on stored job skills.
         /// </summary>

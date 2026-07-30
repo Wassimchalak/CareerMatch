@@ -19,7 +19,7 @@ namespace CareerMatch.API.DTOs
         public decimal? MatchScoreAtSave { get; set; }
 
         public string? SavedMatchExplanation { get; set; }
-
+        public string? SavedRecommendation { get; set; }
         public DateTime SavedAt { get; set; }
     }
 }

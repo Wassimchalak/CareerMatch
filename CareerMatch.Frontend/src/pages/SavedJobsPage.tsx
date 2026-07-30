@@ -14,6 +14,7 @@ interface SavedJobResponse {
     jobUrl: string;
     matchScoreAtSave: number | null;
     savedMatchExplanation: string | null;
+    savedRecommendation: string | null;
     savedAt: string;
 }
 
@@ -414,6 +415,8 @@ function SavedJobsPage() {
                                   response.data.matchScore,
                               savedMatchExplanation:
                                   response.data.matchExplanation,
+                              savedRecommendation:
+                                  response.data.recommendation,
                           }
                         : job
                 )
@@ -889,6 +892,20 @@ function SavedJobsPage() {
                                                                 <span>
                                                                     {
                                                                         job.savedMatchExplanation
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        )}
+
+                                                        {job.savedRecommendation && (
+                                                            <div>
+                                                                <p className="card-label">
+                                                                    Recommendation
+                                                                </p>
+
+                                                                <span>
+                                                                    {
+                                                                        job.savedRecommendation
                                                                     }
                                                                 </span>
                                                             </div>

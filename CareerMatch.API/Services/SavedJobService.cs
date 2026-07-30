@@ -68,7 +68,8 @@ namespace CareerMatch.API.Services
                     @"
                     SELECT TOP 1
                         jm.FinalScore,
-                        jm.MatchExplanation
+                        jm.MatchExplanation,
+                        jm.Recommendation
                     FROM JobMatches jm
                     INNER JOIN
                     (
@@ -84,7 +85,9 @@ namespace CareerMatch.API.Services
                         ON jm.CVTextHash = latestCv.CVTextHash
                     WHERE jm.UserId = @UserId
                       AND jm.JobId = @JobId
-                    ORDER BY jm.CreatedAt DESC;
+                    ORDER BY
+                        jm.CreatedAt DESC,
+                        jm.MatchId DESC;
                     ",
                     new
                     {
@@ -101,6 +104,7 @@ namespace CareerMatch.API.Services
                     JobId,
                     MatchScoreAtSave,
                     SavedMatchExplanation,
+                    SavedRecommendation,
                     SavedAt
                 )
                 VALUES
@@ -109,6 +113,7 @@ namespace CareerMatch.API.Services
                     @JobId,
                     @MatchScoreAtSave,
                     @SavedMatchExplanation,
+                    @SavedRecommendation,
                     @SavedAt
                 );
                 ",
@@ -116,10 +121,16 @@ namespace CareerMatch.API.Services
                 {
                     UserId = userId,
                     request.JobId,
+
                     MatchScoreAtSave =
                         match?.FinalScore,
+
                     SavedMatchExplanation =
                         match?.MatchExplanation,
+
+                    SavedRecommendation =
+                        match?.Recommendation,
+
                     SavedAt = DateTime.UtcNow
                 }
             );
@@ -146,12 +157,15 @@ namespace CareerMatch.API.Services
                         j.JobUrl,
                         sj.MatchScoreAtSave,
                         sj.SavedMatchExplanation,
+                        sj.SavedRecommendation,
                         sj.SavedAt
                     FROM SavedJobs sj
                     INNER JOIN Jobs j
                         ON sj.JobId = j.JobId
                     WHERE sj.UserId = @UserId
-                    ORDER BY sj.SavedAt DESC;
+                    ORDER BY
+                        sj.SavedAt DESC,
+                        sj.SavedJobId DESC;
                     ",
                     new
                     {
@@ -304,7 +318,8 @@ namespace CareerMatch.API.Services
                 UPDATE SavedJobs
                 SET
                     MatchScoreAtSave = @MatchScore,
-                    SavedMatchExplanation = @MatchExplanation
+                    SavedMatchExplanation = @MatchExplanation,
+                    SavedRecommendation = @Recommendation
                 WHERE UserId = @UserId
                   AND JobId = @JobId;
                 ",
@@ -312,19 +327,28 @@ namespace CareerMatch.API.Services
                 {
                     UserId = userId,
                     JobId = jobId,
+
                     MatchScore =
                         match.MatchScore,
+
                     MatchExplanation =
-                        match.MatchExplanation
+                        match.MatchExplanation,
+
+                    Recommendation =
+                        match.Recommendation
                 }
             );
 
             return new SavedJobScoreResponse
             {
                 JobId = jobId,
-                MatchScore = match.MatchScore,
+
+                MatchScore =
+                    match.MatchScore,
+
                 MatchExplanation =
                     match.MatchExplanation,
+
                 Recommendation =
                     match.Recommendation
             };

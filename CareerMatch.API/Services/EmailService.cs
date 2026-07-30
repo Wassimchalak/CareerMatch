@@ -1,3 +1,4 @@
+```csharp
 using Resend;
 
 namespace CareerMatch.API.Services
@@ -30,12 +31,6 @@ namespace CareerMatch.API.Services
                 _configuration["Resend:FromName"]
                 ?? "CareerMatch";
 
-            Console.WriteLine("========== EMAIL DEBUG ==========");
-            Console.WriteLine($"From: {fromName} <{fromEmail}>");
-            Console.WriteLine($"To: {recipientEmail}");
-            Console.WriteLine($"Reset Link: {resetLink}");
-            Console.WriteLine("=================================");
-
             var message = new EmailMessage
             {
                 From = $"{fromName} <{fromEmail}>",
@@ -48,34 +43,7 @@ namespace CareerMatch.API.Services
 
             message.To.Add(recipientEmail);
 
-            try
-            {
-                var response =
-                    await _resend.EmailSendAsync(message);
-
-                Console.WriteLine("========== RESEND RESPONSE ==========");
-                Console.WriteLine(response);
-
-                if (response != null)
-                {
-                    Console.WriteLine($"Success: {response.Success}");
-
-                    if (response.Content != null)
-                    {
-                        Console.WriteLine($"Content: {response.Content}");
-                    }
-                }
-
-                Console.WriteLine("=====================================");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("========== RESEND ERROR ==========");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("==================================");
-
-                throw;
-            }
+            await _resend.EmailSendAsync(message);
         }
 
         private static string BuildPasswordResetEmail(
