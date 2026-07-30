@@ -1004,43 +1004,118 @@ SetStateAction<Set<number>>
         }
     };
 
-   setJobs((currentJobs) => {
-    const rankedJobs = currentJobs
-        .map((job) => {
-            const calculatedMatch =
-                matchesByJobId.get(job.jobId);
+    const handleCalculateAllMatches = async () => {
+        if (calculatingAllScores || jobs.length === 0) {
+            return;
+        }
 
-            if (!calculatedMatch) {
-                return job;
+        clearMessages();
+        setCalculatingAllScores(true);
+
+        const originalJobCount = jobs.length;
+
+        try {
+            const requestBody = {
+                jobIds: jobs.map((job) => job.jobId),
+                country: searchForm.country.trim(),
+                city: searchForm.city.trim(),
+                role: searchForm.role.trim(),
+                workType: searchForm.workType,
+                employmentType: searchForm.employmentType,
+            };
+
+            const response = await api.post(
+                "/JobSearch/calculate-matches",
+                requestBody
+            );
+
+            const calculatedMatches =
+                normalizeMatchResponse(response.data);
+
+            if (calculatedMatches.length === 0) {
+                throw new Error(
+                    "The match response did not contain any job results."
+                );
             }
 
-            return {
-                ...job,
-                matchScore:
-                    calculatedMatch.matchScore,
-                matchExplanation:
-                    calculatedMatch.matchExplanation,
-                recommendation:
-                    calculatedMatch.recommendation,
-                matchStatus: "calculated",
-            };
-        })
-        .sort(
-            (firstJob, secondJob) =>
-                (secondJob.matchScore ?? -1) -
-                (firstJob.matchScore ?? -1)
-        );
+            const matchesByJobId = new Map(
+                calculatedMatches.map((match) => [
+                    match.jobId,
+                    match,
+                ])
+            );
 
-    if (rankedJobs.length > 6) {
-        return rankedJobs.slice(0, 4);
-    }
+            const rankedJobs = jobs
+                .map((job) => {
+                    const calculatedMatch =
+                        matchesByJobId.get(job.jobId);
 
-    if (rankedJobs.length > 3) {
-        return rankedJobs.slice(0, 3);
-    }
+                    if (!calculatedMatch) {
+                        return job;
+                    }
 
-    return rankedJobs;
-});
+                    return {
+                        ...job,
+                        matchScore: calculatedMatch.matchScore,
+                        matchExplanation:
+                            calculatedMatch.matchExplanation,
+                        recommendation:
+                            calculatedMatch.recommendation,
+                        matchStatus: "calculated",
+                    };
+                })
+                .sort(
+                    (firstJob, secondJob) =>
+                        (secondJob.matchScore ?? -1) -
+                        (firstJob.matchScore ?? -1)
+                );
+
+            const bestMatches =
+                rankedJobs.length > 6
+                    ? rankedJobs.slice(0, 4)
+                    : rankedJobs.length > 3
+                      ? rankedJobs.slice(0, 3)
+                      : rankedJobs;
+
+            setJobs(bestMatches);
+
+            setRevealedMatchJobIds(
+                new Set(
+                    bestMatches
+                        .filter(
+                            (job) =>
+                                matchesByJobId.has(job.jobId)
+                        )
+                        .map((job) => job.jobId)
+                )
+            );
+
+            if (originalJobCount > 6) {
+                setSuccessMessage(
+                    "Your best matches are ready. Showing your top 4 jobs."
+                );
+            } else if (originalJobCount > 3) {
+                setSuccessMessage(
+                    "Your best matches are ready. Showing your top 3 jobs."
+                );
+            } else {
+                setSuccessMessage(
+                    "Your best matches are ready."
+                );
+            }
+        } catch (error) {
+            setRevealedMatchJobIds(new Set());
+
+            setErrorMessage(
+                getErrorMessage(
+                    error,
+                    "The match scores could not be calculated."
+                )
+            );
+        } finally {
+            setCalculatingAllScores(false);
+        }
+    };
     const handleToggleSavedJob = async (
         jobId: number
     ) => {
