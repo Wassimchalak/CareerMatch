@@ -498,7 +498,7 @@ JOBS:
             string jobTitle,
             string companyName,
             string jobDescription,
-            string matchRecommendation
+            string? matchRecommendation
            )
         {
             if (string.IsNullOrWhiteSpace(originalCVText))
@@ -508,19 +508,34 @@ JOBS:
                 );
             }
 
-            if (string.IsNullOrWhiteSpace(matchRecommendation))
-            {
-                throw new ArgumentException(
-                    "Match recommendation cannot be empty."
-                );
-            }
-
             // Reduce the job-description size before sending it.
             string preparedJobDescription =
                 PrepareJobDescription(
                     jobDescription,
                     DocumentJobDescriptionLimit
                 );
+
+            string recommendationGuidance =
+                string.IsNullOrWhiteSpace(matchRecommendation)
+                    ? @"
+MATCH RECOMMENDATION GUIDANCE:
+
+- No saved match recommendation is available.
+- Refine the CV using only the ORIGINAL CV, CANDIDATE SKILLS, target job, and job description.
+- Do not generate a separate match recommendation.
+- Do not invent missing skills, experience, projects, education, certifications, achievements, employers, dates, or numbers.
+- Emphasize only truthful qualifications already supported by the candidate data."
+                    : $@"
+MATCH RECOMMENDATION GUIDANCE:
+
+- Use the saved MATCH RECOMMENDATION as guidance for what to emphasize, clarify, or reorganize.
+- The recommendation was generated during job matching; do not generate a new recommendation.
+- Apply only the parts of the recommendation that are supported by the ORIGINAL CV and CANDIDATE SKILLS.
+- When the recommendation mentions a missing skill, technology, qualification, certification, project, or experience that is not present in the candidate data, do not add it.
+- Do not claim that the candidate strengthened, learned, or possesses a missing requirement.
+- A missing requirement may influence wording only by emphasizing truthful transferable or related experience already present.
+- Never copy the recommendation into the refined CV as advice, a note, or a separate section.
+;
 
            string prompt = $@"
 You are refining a CV for a target job.
@@ -608,15 +623,7 @@ FACTUAL ACCURACY:
 - Do not exaggerate qualifications.
 - Do not remove meaningful factual information.
 
-MATCH RECOMMENDATION GUIDANCE:
-
-- Use the saved MATCH RECOMMENDATION as guidance for what to emphasize, clarify, or reorganize.
-- The recommendation was generated during job matching; do not generate a new recommendation.
-- Apply only the parts of the recommendation that are supported by the ORIGINAL CV and CANDIDATE SKILLS.
-- When the recommendation mentions a missing skill, technology, qualification, certification, project, or experience that is not present in the candidate data, do not add it.
-- Do not claim that the candidate strengthened, learned, or possesses a missing requirement.
-- A missing requirement may influence wording only by emphasizing truthful transferable or related experience already present.
-- Never copy the recommendation into the refined CV as advice, a note, or a separate section.
+{recommendationGuidance}
 
 REFINEMENT RULES:
 
@@ -661,11 +668,7 @@ CANDIDATE SKILLS:
 ---BEGIN CANDIDATE SKILLS---
 {cvSkillsText}
 ---END CANDIDATE SKILLS---
-
-SAVED MATCH RECOMMENDATION:
----BEGIN MATCH RECOMMENDATION---
-{CleanText(matchRecommendation)}
----END MATCH RECOMMENDATION---";
+;
 
             return await SendPromptToOpenAIAsync(prompt);
         }
