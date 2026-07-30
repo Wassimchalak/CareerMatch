@@ -2591,44 +2591,31 @@ groupHeading: (base) => ({
                             </section>
                         )}
 
-                    {noSuitableMatches && (
-                        <div
-                            role="status"
-                            aria-live="polite"
-                            className="dashboard-card"
-                            style={{
-                                padding: "22px",
-                                marginBottom: "20px",
-                                borderColor:
-                                    "rgba(255, 193, 7, 0.45)",
-                                background:
-                                    "rgba(255, 193, 7, 0.08)",
-                                textAlign: "center",
-                            }}
-                        >
-                            <strong
-                                style={{
-                                    display: "block",
-                                    marginBottom: "8px",
-                                    fontSize: "18px",
-                                }}
-                            >
-                                No strong matches were found
-                            </strong>
+                   {noSuitableMatches && (
+    <div className="no-matches-card" role="status">
+        <div className="no-matches-icon">
+            <span>✦</span>
+        </div>
 
-                            <span
-                                style={{
-                                    lineHeight: 1.6,
-                                    opacity: 0.85,
-                                }}
-                            >
-                                We calculated the match score for every job,
-                                but none reached the required 60% threshold.
-                                Try another role, adjust your search filters,
-                                or upload an updated CV.
-                            </span>
-                        </div>
-                    )}
+        <div className="no-matches-content">
+            <span className="no-matches-label">
+                MATCH ANALYSIS COMPLETE
+            </span>
+
+            <h3>No strong matches found</h3>
+
+            <p>
+                We analyzed every job from your search, but none reached the
+                required <strong>60% match score</strong>.
+            </p>
+
+            <p className="no-matches-suggestion">
+                Try another role, adjust your filters, or upload an updated CV
+                to improve your results.
+            </p>
+        </div>
+    </div>
+)}
 
                     {jobs.length > 0 && (
                         <section
