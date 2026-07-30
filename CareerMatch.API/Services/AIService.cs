@@ -454,7 +454,22 @@ OUTPUT RULES:
 - Never say the candidate has no experience when a skill is listed with yearsOfExperience = 0.
 - Never return markdown, analysis, notes, or extra text.
 - Return the JSON immediately.
+PLAIN-TEXT FORMATTING RULES:
 
+- Return plain text only.
+- Do not use Markdown formatting.
+- Do not use asterisks for bold or italic text.
+- Do not use **text**, *text*, underscores, hashtags, backticks, HTML, or Markdown headings.
+- Write section headings as normal plain-text lines.
+- Write skill-category labels without surrounding symbols.
+
+Correct:
+Programming Languages:
+Java, Python, C++, C
+
+Incorrect:
+*Programming Languages:*
+**Programming Languages:**
 CANDIDATE:
 {candidateJson}
 
