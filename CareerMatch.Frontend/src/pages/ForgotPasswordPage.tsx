@@ -467,7 +467,7 @@ function ForgotPasswordPage() {
                     }
                 >
                     <Link
-                        to="/"
+                        to="/auth"
                         style={
                             styles.backLink
                         }
