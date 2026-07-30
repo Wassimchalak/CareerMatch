@@ -1004,98 +1004,43 @@ SetStateAction<Set<number>>
         }
     };
 
-    const handleCalculateAllMatches = async () => {
-        if (calculatingAllScores || jobs.length === 0) {
-            return;
-        }
+   setJobs((currentJobs) => {
+    const rankedJobs = currentJobs
+        .map((job) => {
+            const calculatedMatch =
+                matchesByJobId.get(job.jobId);
 
-        clearMessages();
-        setCalculatingAllScores(true);
-
-        try {
-            const requestBody = {
-                jobIds: jobs.map((job) => job.jobId),
-                country: searchForm.country.trim(),
-                city: searchForm.city.trim(),
-                role: searchForm.role.trim(),
-                workType: searchForm.workType,
-                employmentType: searchForm.employmentType,
-            };
-
-            const response = await api.post(
-                "/JobSearch/calculate-matches",
-                requestBody
-            );
-
-            const calculatedMatches =
-                normalizeMatchResponse(response.data);
-
-            if (calculatedMatches.length === 0) {
-                throw new Error(
-                    "The match response did not contain any job results."
-                );
+            if (!calculatedMatch) {
+                return job;
             }
 
-            const matchesByJobId = new Map(
-                calculatedMatches.map((match) => [
-                    match.jobId,
-                    match,
-                ])
-            );
+            return {
+                ...job,
+                matchScore:
+                    calculatedMatch.matchScore,
+                matchExplanation:
+                    calculatedMatch.matchExplanation,
+                recommendation:
+                    calculatedMatch.recommendation,
+                matchStatus: "calculated",
+            };
+        })
+        .sort(
+            (firstJob, secondJob) =>
+                (secondJob.matchScore ?? -1) -
+                (firstJob.matchScore ?? -1)
+        );
 
-            setJobs((currentJobs) =>
-                currentJobs
-                    .map((job) => {
-                        const calculatedMatch =
-                            matchesByJobId.get(job.jobId);
+    if (rankedJobs.length > 6) {
+        return rankedJobs.slice(0, 4);
+    }
 
-                        if (!calculatedMatch) {
-                            return job;
-                        }
+    if (rankedJobs.length > 3) {
+        return rankedJobs.slice(0, 3);
+    }
 
-                        return {
-                            ...job,
-                            matchScore:
-                                calculatedMatch.matchScore,
-                            matchExplanation:
-                                calculatedMatch.matchExplanation,
-                            recommendation:
-                                calculatedMatch.recommendation,
-                            matchStatus: "calculated",
-                        };
-                    })
-                    .sort(
-                        (firstJob, secondJob) =>
-                            (secondJob.matchScore ?? -1) -
-                            (firstJob.matchScore ?? -1)
-                    )
-            );
-
-            setRevealedMatchJobIds(
-                new Set(
-                    calculatedMatches.map(
-                        (match) => match.jobId
-                    )
-                )
-            );
-
-            setSuccessMessage(
-                "Match scores are ready. Jobs are ranked from highest to lowest match."
-            );
-        } catch (error) {
-            setRevealedMatchJobIds(new Set());
-
-            setErrorMessage(
-                getErrorMessage(
-                    error,
-                    "The match scores could not be calculated."
-                )
-            );
-        } finally {
-            setCalculatingAllScores(false);
-        }
-    };
-
+    return rankedJobs;
+});
     const handleToggleSavedJob = async (
         jobId: number
     ) => {
@@ -2548,7 +2493,7 @@ groupHeading: (base) => ({
                                     >
                                         {calculatingAllScores
                                             ? "Calculating Match Scores..."
-                                            : "Calculate Match Scores"}
+                                            : "Show Your Best Matches ✨"}
                                     </button>
                                 </div>
 
