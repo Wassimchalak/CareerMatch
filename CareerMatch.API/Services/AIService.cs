@@ -535,9 +535,13 @@ MATCH RECOMMENDATION GUIDANCE:
 - Do not claim that the candidate strengthened, learned, or possesses a missing requirement.
 - A missing requirement may influence wording only by emphasizing truthful transferable or related experience already present.
 - Never copy the recommendation into the refined CV as advice, a note, or a separate section.
-;
 
-           string prompt = $@"
+SAVED MATCH RECOMMENDATION:
+---BEGIN MATCH RECOMMENDATION---
+{CleanText(matchRecommendation)}
+---END MATCH RECOMMENDATION---";
+
+            string prompt = $@"
 You are refining a CV for a target job.
 
 Follow the steps below in the exact order.
@@ -629,7 +633,7 @@ REFINEMENT RULES:
 
 - Improve grammar, wording, clarity, structure, and ATS readability.
 - Correct language and spelling mistakes.
-- Emphasize only existing qualifications relevant to the target job and supported by the saved recommendation.
+- Emphasize only existing qualifications relevant to the target job. Use the saved recommendation as additional guidance when available.
 - Reorganize existing information when useful.
 - Use a clean single-column CV structure.
 - Use clear headings.
@@ -667,8 +671,7 @@ JOB DESCRIPTION:
 CANDIDATE SKILLS:
 ---BEGIN CANDIDATE SKILLS---
 {cvSkillsText}
----END CANDIDATE SKILLS---
-;
+---END CANDIDATE SKILLS---";
 
             return await SendPromptToOpenAIAsync(prompt);
         }
