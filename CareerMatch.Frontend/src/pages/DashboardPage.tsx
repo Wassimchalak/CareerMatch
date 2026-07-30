@@ -1021,121 +1021,149 @@ const handleToggleJobDescription = (jobId: number) => {
         }
     };
 
-   const handleCalculateAllMatches = async () => {
-    if (calculatingAllScores || jobs.length === 0) {
-        return;
-    }
-
-    clearMessages();
-    setNoSuitableMatches(false);
-    setCalculatingAllScores(true);
-
-    try {
-        const response = await api.post<unknown>(
-            "/JobSearch/calculate-matches",
-            {
-                jobIds: jobs.map((job) => job.jobId),
-            }
-        );
-
-        const calculatedMatches =
-            normalizeMatchResponse(response.data);
-
-        const matchesByJobId =
-            new Map<number, MatchResultResponse>(
-                calculatedMatches.map((match) => [
-                    match.jobId,
-                    match,
-                ])
-            );
-
-        const filteredJobs: JobSearchResponse[] = [];
-
-        for (const job of jobs) {
-            const calculatedMatch =
-                matchesByJobId.get(job.jobId);
-
-            if (!calculatedMatch) {
-                continue;
-            }
-
-            if (calculatedMatch.matchScore < 60) {
-                continue;
-            }
-
-            const updatedJob: JobSearchResponse = {
-                ...job,
-                matchScore:
-                    calculatedMatch.matchScore,
-                matchExplanation:
-                    calculatedMatch.matchExplanation,
-                recommendation:
-                    calculatedMatch.recommendation,
-                matchStatus: "calculated",
-            };
-
-            filteredJobs.push(updatedJob);
-        }
-
-        filteredJobs.sort(
-            (firstJob, secondJob) =>
-                (secondJob.matchScore ?? 0) -
-                (firstJob.matchScore ?? 0)
-        );
-
-        setJobs(filteredJobs);
-
-        sessionStorage.setItem(
-            SEARCH_JOBS_STORAGE_KEY,
-            JSON.stringify(filteredJobs)
-        );
-
-        if (filteredJobs.length === 0) {
-            setNoSuitableMatches(true);
-            setRevealedMatchJobIds(new Set());
-
-            sessionStorage.removeItem(
-                REVEALED_MATCHES_STORAGE_KEY
-            );
-
+    const handleCalculateAllMatches = async () => {
+        if (calculatingAllScores || jobs.length === 0) {
             return;
         }
 
-        const revealedJobIds = new Set(
-            filteredJobs.map((job) => job.jobId)
-        );
+        clearMessages();
+        setNoSuitableMatches(false);
+        setCalculatingAllScores(true);
 
-        setRevealedMatchJobIds(revealedJobIds);
+        /*
+            Keep all jobs returned by the latest search.
+            Every job ID is sent to the backend before any
+            score filtering happens.
+        */
+        const allSearchedJobs: JobSearchResponse[] = [...jobs];
 
-        sessionStorage.setItem(
-            REVEALED_MATCHES_STORAGE_KEY,
-            JSON.stringify(
-                Array.from(revealedJobIds)
-            )
-        );
-    } catch (error) {
-        setRevealedMatchJobIds(new Set());
-
-        const backendMessage = getErrorMessage(
-            error,
-            "The match scores could not be calculated."
-        );
-
-        if (
-            backendMessage
-                .toLowerCase()
-                .includes("cv")
-        ) {
-            setErrorMessage(
-                "Please upload a CV before calculating your best matches."
+        try {
+            const response = await api.post<unknown>(
+                "/JobSearch/calculate-matches",
+                {
+                    jobIds: allSearchedJobs.map(
+                        (job) => job.jobId
+                    ),
+                }
             );
-        } else {
-            setErrorMessage(backendMessage);
+
+            const calculatedMatches =
+                normalizeMatchResponse(response.data);
+
+            const matchesByJobId =
+                new Map<number, MatchResultResponse>();
+
+            for (const match of calculatedMatches) {
+                matchesByJobId.set(match.jobId, match);
+            }
+
+            /*
+                First merge every valid calculated result into
+                its original searched job. This array never
+                contains null, so TypeScript can safely treat it
+                as JobSearchResponse[].
+            */
+            const calculatedJobs: JobSearchResponse[] = [];
+
+            for (const job of allSearchedJobs) {
+                const calculatedMatch =
+                    matchesByJobId.get(job.jobId);
+
+                if (!calculatedMatch) {
+                    continue;
+                }
+
+                const numericScore = Number(
+                    calculatedMatch.matchScore
+                );
+
+                if (!Number.isFinite(numericScore)) {
+                    continue;
+                }
+
+                calculatedJobs.push({
+                    ...job,
+                    matchScore: numericScore,
+                    matchExplanation:
+                        calculatedMatch.matchExplanation,
+                    recommendation:
+                        calculatedMatch.recommendation,
+                    matchStatus: "calculated",
+                });
+            }
+
+            /*
+                Only after all jobs have been calculated, keep
+                the jobs whose score is at least 60 percent.
+            */
+            const strongMatches: JobSearchResponse[] =
+                calculatedJobs
+                    .filter(
+                        (job) =>
+                            job.matchScore !== null &&
+                            job.matchScore >= 60
+                    )
+                    .sort(
+                        (firstJob, secondJob) =>
+                            (secondJob.matchScore ?? 0) -
+                            (firstJob.matchScore ?? 0)
+                    );
+
+            setJobs(strongMatches);
+
+            sessionStorage.setItem(
+                SEARCH_JOBS_STORAGE_KEY,
+                JSON.stringify(strongMatches)
+            );
+
+            if (strongMatches.length === 0) {
+                setNoSuitableMatches(true);
+                setRevealedMatchJobIds(new Set<number>());
+
+                sessionStorage.removeItem(
+                    REVEALED_MATCHES_STORAGE_KEY
+                );
+
+                return;
+            }
+
+            setNoSuitableMatches(false);
+
+            const revealedJobIds = new Set<number>(
+                strongMatches.map((job) => job.jobId)
+            );
+
+            setRevealedMatchJobIds(revealedJobIds);
+
+            sessionStorage.setItem(
+                REVEALED_MATCHES_STORAGE_KEY,
+                JSON.stringify(
+                    Array.from(revealedJobIds)
+                )
+            );
+        } catch (error) {
+            setRevealedMatchJobIds(new Set<number>());
+
+            const backendMessage = getErrorMessage(
+                error,
+                "The match scores could not be calculated."
+            );
+
+            if (
+                backendMessage
+                    .toLowerCase()
+                    .includes("cv")
+            ) {
+                setErrorMessage(
+                    "Please upload a CV before calculating your best matches."
+                );
+            } else {
+                setErrorMessage(backendMessage);
+            }
+        } finally {
+            setCalculatingAllScores(false);
         }
-    } finally {
-        setCalculatingAllScores(false);
-    }
-};
+    };
 
     const handleToggleSavedJob = async (
         jobId: number
@@ -2594,9 +2622,10 @@ groupHeading: (base) => ({
                                     opacity: 0.85,
                                 }}
                             >
-                                Your scores are too low for these jobs.
-                                None of the calculated matches reached 60%.
-                                Try another role or update your CV.
+                                We calculated the match score for every job,
+                                but none reached the required 60% threshold.
+                                Try another role, adjust your search filters,
+                                or upload an updated CV.
                             </span>
                         </div>
                     )}
