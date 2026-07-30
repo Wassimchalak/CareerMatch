@@ -519,69 +519,19 @@ You are refining a CV for a target job.
 
 Follow the steps below in the exact order.
 
-STEP 1 — DETECT AND LOCK THE CV LANGUAGE:
+STEP 1 — REWRITE THE CV IN ENGLISH:
 
-Read ONLY the text inside ORIGINAL CV.
-
-Determine whether its main professional content is written in:
-
-- English
-- French
-
-The main professional content includes:
-
-- Professional summary
-- Work experience
-- Education
-- Projects
-- Responsibilities
-- Achievements
-- Descriptive sentences
-
-Do not use any other section of this prompt for language detection.
+Rewrite the complete CV in professional English.
 
 Important:
 
+- The final CV must ALWAYS be written in English.
+- If the original CV is written in another language, translate it into natural, professional English while preserving its original meaning.
 - Ignore the language of the job title.
 - Ignore the language of the company name.
 - Ignore the language of the job description.
 - Ignore the language of CANDIDATE SKILLS.
-- Ignore technology names and technical terms.
-- English technology names do not make a French CV an English CV.
-- Words such as C#, .NET, Java, React, SQL Server, Git, Docker, Azure, AWS, HTML, CSS, JavaScript, Python, SAP, AutoCAD, and Microsoft Excel must not influence language detection.
-
-After detecting the language, lock it as the required output language.
-
-Mandatory mapping:
-
-- French original CV = complete refined CV in French.
-- English original CV = complete refined CV in English.
-
-If the original CV is primarily in another language, return exactly:
-
-INVALID_CV_LANGUAGE
-
-STEP 2 — REFINE IN THE LOCKED LANGUAGE:
-
-Rewrite the complete CV using only the language detected from the ORIGINAL CV.
-
-If the detected language is French:
-
-- Write every normal heading in French.
-- Write the professional summary in French.
-- Write all experience descriptions in French.
-- Write all education and project descriptions in French.
-- Use natural and professional French.
-- Do not translate the CV into English.
-- Do not use headings such as Professional Summary, Work Experience, Education, or Skills.
-- Prefer headings such as Profil professionnel, Expérience professionnelle, Formation, Compétences, Projets, Certifications, and Langues when relevant.
-
-If the detected language is English:
-
-- Write every normal heading and description in English.
-- Do not translate the CV into French.
-
-Official technology names, product names, company names, university names, certification names, and abbreviations may remain in their original form.
+- Official technology names, product names, company names, university names, certification names, and abbreviations may remain in their original form.
 
 FACTUAL ACCURACY:
 
@@ -609,16 +559,13 @@ REFINEMENT RULES:
 - Use a clean single-column CV structure.
 - Use clear headings.
 - Use concise professional bullet points.
-- Use professional terminology appropriate for the locked language.
+- Use professional terminology.
+- Return plain text only.
+- Do not use Markdown formatting such as *, **, _, #, or code blocks.
 
 OUTPUT RULES:
 
-- Before generating the response, verify that its language matches the ORIGINAL CV.
-- A French CV must produce a French response.
-- An English CV must produce an English response.
-- The job description language must never override the CV language.
-- Return only the complete refined CV.
-- Do not return the detected language.
+- Return the complete refined CV in English only.
 - Do not return explanations.
 - Do not return commentary.
 - Do not use markdown code fences.
@@ -643,7 +590,6 @@ CANDIDATE SKILLS:
 ---BEGIN CANDIDATE SKILLS---
 {cvSkillsText}
 ---END CANDIDATE SKILLS---";
-
             return await SendPromptToOpenAIAsync(prompt);
         }
 
