@@ -1117,16 +1117,36 @@ const handleToggleJobDescription = (jobId: number) => {
                     "Your best matches are ready."
                 );
             }
-        } catch (error) {
-            setRevealedMatchJobIds(new Set());
+        } } catch (error) {
+    setRevealedMatchJobIds(new Set());
 
-            setErrorMessage(
-                getErrorMessage(
-                    error,
-                    "The match scores could not be calculated."
-                )
-            );
-        } finally {
+    const backendMessage = getErrorMessage(
+        error,
+        "The match scores could not be calculated."
+    );
+
+    if (
+        backendMessage.toLowerCase().includes("cv") ||
+        (
+            axios.isAxiosError(error) &&
+            error.response?.status === 400
+        )
+    ) {
+        setErrorMessage(
+            "Please upload a CV before calculating your best matches."
+        );
+    } else {
+        setErrorMessage(backendMessage);
+    }
+
+    window.setTimeout(() => {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    }, 100);
+} 
+finally {
             setCalculatingAllScores(false);
         }
     };
