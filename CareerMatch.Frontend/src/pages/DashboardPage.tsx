@@ -463,6 +463,8 @@ function DashboardPage() {
 
     const [errorMessage, setErrorMessage] =
         useState("");
+        const [expandedDescriptionJobIds, setExpandedDescriptionJobIds] =
+    useState<Set<number>>(new Set());
 useEffect(() => {
     if (!searchingJobs) {
         setLoadingMessageIndex(0);
@@ -761,7 +763,19 @@ SetStateAction<Set<number>>
                 )
         );
     };
+const handleToggleJobDescription = (jobId: number) => {
+    setExpandedDescriptionJobIds((currentIds) => {
+        const updatedIds = new Set(currentIds);
 
+        if (updatedIds.has(jobId)) {
+            updatedIds.delete(jobId);
+        } else {
+            updatedIds.add(jobId);
+        }
+
+        return updatedIds;
+    });
+};
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("userId");
@@ -2560,16 +2574,18 @@ groupHeading: (base) => ({
                                         justifyContent: "flex-end",
                                     }}
                                 >
-                                    <button
-                                        type="button"
-                                        className="dashboard-primary-button"
-                                        disabled={calculatingAllScores}
-                                        onClick={handleCalculateAllMatches}
-                                    >
-                                        {calculatingAllScores
-                                            ? "Calculating Match Scores..."
-                                            : "Show Your Best Matches ✨"}
-                                    </button>
+                                    <div className="best-matches-button">
+                                        <button
+                                            type="button"
+                                            className="dashboard-primary-button"
+                                            onClick={handleCalculateAllMatches}
+                                            disabled={calculatingAllScores || jobs.length === 0}
+                                        >
+                                            {calculatingAllScores
+                                                ? "Finding Your Best Matches..."
+                                                : "Show Your Best Matches ✨"}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {calculatingAllScores && (
@@ -2740,27 +2756,72 @@ groupHeading: (base) => ({
                                                 </div>
                                             </div>
 
-                                            <p
-                                                style={{
-                                                    margin: 0,
-                                                    color:
-                                                        "var(--dashboard-muted)",
-                                                    fontSize:
-                                                        "13px",
-                                                    lineHeight:
-                                                        1.7,
-                                                }}
-                                            >
-                                                {job.description
-                                                    ? job.description.length >
-                                                      420
-                                                        ? `${job.description.slice(
-                                                              0,
-                                                              420
-                                                          )}...`
-                                                        : job.description
-                                                    : "No job description was provided."}
-                                            </p>
+                                           <div>
+    <p
+        style={{
+            margin: 0,
+            color: "var(--dashboard-muted)",
+            fontSize: "13px",
+            lineHeight: 1.7,
+            whiteSpace: "pre-line",
+        }}
+    >
+        {job.description
+            ? expandedDescriptionJobIds.has(job.jobId)
+                ? job.description
+                : job.description.length > 420
+                  ? `${job.description.slice(0, 420)}`
+                  : job.description
+            : "No job description was provided."}
+
+        {job.description &&
+            job.description.length > 420 &&
+            !expandedDescriptionJobIds.has(job.jobId) && (
+                <button
+                    type="button"
+                    onClick={() =>
+                        handleToggleJobDescription(job.jobId)
+                    }
+                    aria-label="Show full job description"
+                    style={{
+                        marginLeft: "4px",
+                        padding: "0 5px",
+                        border: "none",
+                        background: "transparent",
+                        color: "#c084fc",
+                        fontSize: "18px",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                    }}
+                >
+                    ...
+                </button>
+            )}
+    </p>
+
+    {job.description &&
+        job.description.length > 420 &&
+        expandedDescriptionJobIds.has(job.jobId) && (
+            <button
+                type="button"
+                onClick={() =>
+                    handleToggleJobDescription(job.jobId)
+                }
+                style={{
+                    marginTop: "8px",
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "#c084fc",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                }}
+            >
+                Show less
+            </button>
+        )}
+</div>
 
                                             <span
                                                 style={{
