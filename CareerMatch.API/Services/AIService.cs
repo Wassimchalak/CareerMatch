@@ -454,22 +454,7 @@ OUTPUT RULES:
 - Never say the candidate has no experience when a skill is listed with yearsOfExperience = 0.
 - Never return markdown, analysis, notes, or extra text.
 - Return the JSON immediately.
-PLAIN-TEXT FORMATTING RULES:
 
-- Return plain text only.
-- Do not use Markdown formatting.
-- Do not use asterisks for bold or italic text.
-- Do not use **text**, *text*, underscores, hashtags, backticks, HTML, or Markdown headings.
-- Write section headings as normal plain-text lines.
-- Write skill-category labels without surrounding symbols.
-
-Correct:
-Programming Languages:
-Java, Python, C++, C
-
-Incorrect:
-*Programming Languages:*
-**Programming Languages:**
 CANDIDATE:
 {candidateJson}
 
@@ -507,185 +492,137 @@ JOBS:
         /// <summary>
         /// Rewrites a CV for a specific job while preserving factual accuracy.
         /// </summary>
-       public async Task<string> RefineCVForJobAsync(
-    string originalCVText,
-    string cvSkillsText,
-    string jobTitle,
-    string companyName,
-    string jobDescription,
-    string? matchRecommendation)
-{
-    if (string.IsNullOrWhiteSpace(originalCVText))
-    {
-        throw new ArgumentException(
-            "Original CV text cannot be empty.",
-            nameof(originalCVText)
-        );
-    }
+        public async Task<string> RefineCVForJobAsync(
+            string originalCVText,
+            string cvSkillsText,
+            string jobTitle,
+            string companyName,
+            string jobDescription
+           )
+        {
+            if (string.IsNullOrWhiteSpace(originalCVText))
+            {
+                throw new ArgumentException(
+                    "Original CV text cannot be empty."
+                );
+            }
 
-    string preparedJobDescription =
-        PrepareJobDescription(
-            jobDescription ?? string.Empty,
-            DocumentJobDescriptionLimit
-        );
+            // Reduce the job-description size before sending it.
+            string preparedJobDescription =
+                PrepareJobDescription(
+                    jobDescription,
+                    DocumentJobDescriptionLimit
+                );
 
-    string recommendationGuidance =
-        string.IsNullOrWhiteSpace(matchRecommendation)
-            ? @"
-No saved match recommendation is available.
+           string prompt = $@"
+You are refining a CV for a target job.
 
-Refine the CV using only:
-- the original CV
-- the verified candidate skills
-- the target job
-- the job description
+Follow the steps below in the exact order.
 
-Do not generate a match recommendation."
-            : $@"
-A saved match recommendation is available.
+STEP 1 — DETECT AND LOCK THE CV LANGUAGE:
 
-Use it only as guidance for deciding which existing qualifications should be emphasized, clarified, or reorganized.
+Read ONLY the text inside ORIGINAL CV.
 
-Rules:
-- Do not copy the recommendation into the CV.
-- Do not mention that a recommendation was provided.
-- Do not generate a new recommendation.
-- Ignore any part of the recommendation that is not supported by the original CV or candidate skills.
-- Do not add a missing skill, qualification, project, certification, responsibility, or experience merely because it appears in the recommendation.
+Determine whether its main professional content is written in:
 
-SAVED MATCH RECOMMENDATION:
----BEGIN MATCH RECOMMENDATION---
-{CleanText(matchRecommendation)}
----END MATCH RECOMMENDATION---";
+- English
+- French
 
-    string prompt = $@"
-You are an expert ATS resume writer.
+The main professional content includes:
 
-Your task is to rewrite and optimize the candidate's CV for the target job while preserving complete factual accuracy.
+- Professional summary
+- Work experience
+- Education
+- Projects
+- Responsibilities
+- Achievements
+- Descriptive sentences
 
-The final CV should improve the candidate's chances of passing ATS screening and being understood by recruiters without inventing, assuming, or exaggerating information.
+Do not use any other section of this prompt for language detection.
 
-OUTPUT LANGUAGE:
+Important:
 
-- Generate the entire refined CV in English only.
-- The final output must always be written in fluent, natural, professional English.
-- If the original CV contains French, Arabic, or another language, translate its professional content into English while preserving the original meaning.
-- If the job description is not written in English, understand its meaning but still generate the final CV only in English.
-- Keep official company names, university names, certification names, product names, programming languages, frameworks, databases, tools, libraries, cloud services, APIs, and abbreviations in their standard form when appropriate.
-- Do not mix English with another language except for official names or technical terms that should remain unchanged.
+- Ignore the language of the job title.
+- Ignore the language of the company name.
+- Ignore the language of the job description.
+- Ignore the language of CANDIDATE SKILLS.
+- Ignore technology names and technical terms.
+- English technology names do not make a French CV an English CV.
+- Words such as C#, .NET, Java, React, SQL Server, Git, Docker, Azure, AWS, HTML, CSS, JavaScript, Python, SAP, AutoCAD, and Microsoft Excel must not influence language detection.
+
+After detecting the language, lock it as the required output language.
+
+Mandatory mapping:
+
+- French original CV = complete refined CV in French.
+- English original CV = complete refined CV in English.
+
+If the original CV is primarily in another language, return exactly:
+
+INVALID_CV_LANGUAGE
+
+STEP 2 — REFINE IN THE LOCKED LANGUAGE:
+
+Rewrite the complete CV using only the language detected from the ORIGINAL CV.
+
+If the detected language is French:
+
+- Write every normal heading in French.
+- Write the professional summary in French.
+- Write all experience descriptions in French.
+- Write all education and project descriptions in French.
+- Use natural and professional French.
+- Do not translate the CV into English.
+- Do not use headings such as Professional Summary, Work Experience, Education, or Skills.
+- Prefer headings such as Profil professionnel, Expérience professionnelle, Formation, Compétences, Projets, Certifications, and Langues when relevant.
+
+If the detected language is English:
+
+- Write every normal heading and description in English.
+- Do not translate the CV into French.
+
+Official technology names, product names, company names, university names, certification names, and abbreviations may remain in their original form.
 
 FACTUAL ACCURACY:
 
-Every statement in the refined CV must be supported by one of these sources:
+- Preserve complete factual accuracy.
+- Do not invent information.
+- Do not add skills.
+- Do not add experience.
+- Do not add projects.
+- Do not add education.
+- Do not add certifications.
+- Do not add achievements.
+- Do not add employers.
+- Do not add dates.
+- Do not add numbers.
+- Do not change years of experience.
+- Do not exaggerate qualifications.
+- Do not remove meaningful factual information.
 
-- ORIGINAL CV
-- CANDIDATE SKILLS
+REFINEMENT RULES:
 
-Never invent or assume information.
-
-Do not:
-
-- add skills that are not supported
-- add technologies that are not supported
-- add work experience
-- add employers
-- add job titles
-- add responsibilities
-- add achievements
-- add projects
-- add education
-- add certifications
-- add awards
-- add dates
-- add numbers
-- add years of experience
-- add leadership experience
-- add soft skills that are not supported
-- claim knowledge of missing tools or technologies
-- exaggerate the candidate's level of experience
-- change factual dates, employers, degrees, job titles, or experience durations
-- remove meaningful factual information from the original CV
-
-MATCH RECOMMENDATION GUIDANCE:
-
-{recommendationGuidance}
-
-ATS OPTIMIZATION:
-
-- Improve keyword relevance only when the keywords are already supported by the original CV or candidate skills.
-- Naturally emphasize relevant skills, responsibilities, technologies, and experience that match the target job.
-- Do not use keyword stuffing.
-- Improve readability, consistency, grammar, spelling, structure, and professional wording.
-- Use standard ATS-friendly section headings.
-- Use a clean, single-column structure.
-- Do not use tables, columns, icons, graphics, text boxes, or unusual symbols.
-
-CV STRUCTURE:
-
-Use only sections supported by the candidate's information.
-
-Possible sections include:
-
-- Contact Information
-- Professional Summary
-- Technical Skills
-- Professional Experience
-- Projects
-- Education
-- Certifications
-- Languages
-
-Do not create an empty section.
-
-PROFESSIONAL SUMMARY:
-
-- Write a concise professional summary in English.
-- Keep it between 3 and 5 sentences.
-- Tailor it to the target role.
-- Mention only qualifications supported by the candidate's information.
-- Do not use vague claims such as ""highly accomplished"" or ""industry-leading"" unless clearly justified.
-
-TECHNICAL SKILLS:
-
-- Organize existing skills into logical categories when useful.
-- Preserve only skills supported by the original CV or candidate skills.
-- Do not infer one technology from another.
-- Do not add technologies merely because they appear in the job description.
-
-PROFESSIONAL EXPERIENCE:
-
-- Preserve the original employer names, job titles, and dates.
-- Improve grammar, clarity, and professional wording.
-- Use concise bullet points.
-- Begin bullet points with strong action verbs when appropriate.
-- Emphasize responsibilities and achievements that are relevant to the target job.
-- Do not create achievements, metrics, responsibilities, or outcomes that are not stated or clearly supported.
-
-PROJECTS:
-
-- Include projects only when they exist in the original CV.
-- Improve their wording and relevance.
-- Do not add technologies, features, results, or responsibilities that are not supported.
-
-EDUCATION AND CERTIFICATIONS:
-
-- Preserve all factual names, degrees, institutions, certifications, and dates.
-- Translate descriptive text into English when needed.
-- Do not create missing education or certifications.
+- Improve grammar, wording, clarity, structure, and ATS readability.
+- Correct language and spelling mistakes.
+- Emphasize only existing qualifications relevant to the target job.
+- Reorganize existing information when useful.
+- Use a clean single-column CV structure.
+- Use clear headings.
+- Use concise professional bullet points.
+- Use professional terminology appropriate for the locked language.
 
 OUTPUT RULES:
 
+- Before generating the response, verify that its language matches the ORIGINAL CV.
+- A French CV must produce a French response.
+- An English CV must produce an English response.
+- The job description language must never override the CV language.
 - Return only the complete refined CV.
-- Return the CV in English only.
-- Do not return an explanation.
-- Do not return notes.
-- Do not return a match score.
-- Do not return a recommendation.
-- Do not mention these instructions.
+- Do not return the detected language.
+- Do not return explanations.
+- Do not return commentary.
 - Do not use markdown code fences.
 - Do not include placeholders.
-- Do not include headings such as ""Refined CV"" or ""Generated CV"" unless such a heading existed in the original CV.
-- Do not add information after the CV.
 
 ORIGINAL CV:
 ---BEGIN ORIGINAL CV---
@@ -694,7 +631,7 @@ ORIGINAL CV:
 
 TARGET JOB:
 ---BEGIN TARGET JOB---
-{CleanText(jobTitle)} at {CleanText(companyName)}
+{jobTitle} at {companyName}
 ---END TARGET JOB---
 
 JOB DESCRIPTION:
@@ -704,22 +641,11 @@ JOB DESCRIPTION:
 
 CANDIDATE SKILLS:
 ---BEGIN CANDIDATE SKILLS---
-{CleanText(cvSkillsText)}
----END CANDIDATE SKILLS---
-";
+{cvSkillsText}
+---END CANDIDATE SKILLS---";
 
-    string refinedCV =
-        await SendPromptToOpenAIAsync(prompt);
-
-    if (string.IsNullOrWhiteSpace(refinedCV))
-    {
-        throw new InvalidOperationException(
-            "OpenAI returned an empty refined CV."
-        );
-    }
-
-    return refinedCV.Trim();
-}
+            return await SendPromptToOpenAIAsync(prompt);
+        }
 
         /// <summary>
         /// Generates a personalized and truthful cover letter.

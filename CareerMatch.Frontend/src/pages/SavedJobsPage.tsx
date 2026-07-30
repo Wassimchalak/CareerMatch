@@ -42,8 +42,7 @@ interface ApplyModalState {
 
 type GeneratedDocumentType =
     | "cv"
-    | "coverLetter"
-    | "interviewQuestions";
+    | "coverLetter";
 
 function SavedJobsPage() {
     const navigate = useNavigate();
@@ -73,7 +72,6 @@ function SavedJobsPage() {
         useState<Record<GeneratedDocumentType, boolean>>({
             cv: false,
             coverLetter: false,
-            interviewQuestions: false,
         });
 
     const [successMessage, setSuccessMessage] =
@@ -280,8 +278,6 @@ function SavedJobsPage() {
             cv: "/GeneratedCV/generate",
             coverLetter:
                 "/GeneratedCoverLetter/generate",
-            interviewQuestions:
-                "/GeneratedInterviewQuestions/generate",
         };
 
         const fallbackNameByType: Record<
@@ -290,8 +286,6 @@ function SavedJobsPage() {
         > = {
             cv: "refined-cv.pdf",
             coverLetter: "cover-letter.pdf",
-            interviewQuestions:
-                "interview-questions.pdf",
         };
 
         try {
@@ -342,8 +336,6 @@ function SavedJobsPage() {
                 cv: "Your refined CV was downloaded.",
                 coverLetter:
                     "Your cover letter was downloaded.",
-                interviewQuestions:
-                    "Your interview questions were downloaded.",
             };
 
             setSuccessMessage(
@@ -1126,45 +1118,13 @@ function SavedJobsPage() {
                                 </span>
                             </button>
 
-                            <button
-                                type="button"
-                                className="apply-option-card"
-                                onClick={() =>
-                                    downloadGeneratedPdf(
-                                        "interviewQuestions"
-                                    )
-                                }
-                                disabled={
-                                    generatingDocuments.interviewQuestions
-                                }
-                            >
-                                <span className="apply-option-icon">
-                                    ?
-                                </span>
-
-                                <span className="apply-option-copy">
-                                    <strong>
-                                        Generate Interview Questions
-                                    </strong>
-                                    <small>
-                                        Download tailored practical and
-                                        theoretical interview preparation.
-                                    </small>
-                                </span>
-
-                                <span className="apply-option-action">
-                                    {generatingDocuments.interviewQuestions
-                                        ? "Generating..."
-                                        : "Generate"}
-                                </span>
-                            </button>
                         </div>
 
                         <div className="apply-modal-footer">
                             <p>
                                 {applyModal.hasCV
                                     ? "Generating documents is optional. You can continue whenever you are ready."
-                                    : "You can still generate interview questions and continue to the external application page without a CareerMatch CV."}
+                                    : "You can continue to the external application page, but CV refinement and cover-letter generation require an uploaded CareerMatch CV."}
                             </p>
 
                             <button
