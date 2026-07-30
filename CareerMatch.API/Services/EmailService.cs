@@ -22,11 +22,19 @@ namespace CareerMatch.API.Services
         {
             string fromEmail =
                 _configuration["Resend:FromEmail"]
-                ?? "onboarding@resend.dev";
+                ?? throw new InvalidOperationException(
+                    "Resend:FromEmail is missing."
+                );
 
             string fromName =
                 _configuration["Resend:FromName"]
                 ?? "CareerMatch";
+
+            Console.WriteLine("========== EMAIL DEBUG ==========");
+            Console.WriteLine($"From: {fromName} <{fromEmail}>");
+            Console.WriteLine($"To: {recipientEmail}");
+            Console.WriteLine($"Reset Link: {resetLink}");
+            Console.WriteLine("=================================");
 
             var message = new EmailMessage
             {
@@ -40,7 +48,34 @@ namespace CareerMatch.API.Services
 
             message.To.Add(recipientEmail);
 
-            await _resend.EmailSendAsync(message);
+            try
+            {
+                var response =
+                    await _resend.EmailSendAsync(message);
+
+                Console.WriteLine("========== RESEND RESPONSE ==========");
+                Console.WriteLine(response);
+
+                if (response != null)
+                {
+                    Console.WriteLine($"Success: {response.Success}");
+
+                    if (response.Content != null)
+                    {
+                        Console.WriteLine($"Content: {response.Content}");
+                    }
+                }
+
+                Console.WriteLine("=====================================");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("========== RESEND ERROR ==========");
+                Console.WriteLine(ex.ToString());
+                Console.WriteLine("==================================");
+
+                throw;
+            }
         }
 
         private static string BuildPasswordResetEmail(
@@ -62,88 +97,86 @@ namespace CareerMatch.API.Services
                 </head>
 
                 <body style="
-                    margin: 0;
-                    padding: 0;
-                    background-color: #f4f4f7;
-                    font-family: Arial, Helvetica, sans-serif;
+                    margin:0;
+                    padding:0;
+                    background:#f4f4f7;
+                    font-family:Arial,Helvetica,sans-serif;
                 ">
                     <table width="100%"
                            cellpadding="0"
                            cellspacing="0"
-                           style="padding: 40px 16px;">
+                           style="padding:40px 16px;">
                         <tr>
                             <td align="center">
                                 <table width="100%"
                                        cellpadding="0"
                                        cellspacing="0"
                                        style="
-                                           max-width: 560px;
-                                           background-color: #ffffff;
-                                           border-radius: 16px;
-                                           padding: 40px;
+                                           max-width:560px;
+                                           background:#ffffff;
+                                           border-radius:16px;
+                                           padding:40px;
                                            box-shadow:
-                                               0 8px 30px
-                                               rgba(0, 0, 0, 0.08);
+                                               0 8px 30px rgba(0,0,0,.08);
                                        ">
                                     <tr>
                                         <td>
                                             <h1 style="
-                                                margin: 0 0 16px;
-                                                color: #111827;
-                                                font-size: 28px;
+                                                margin:0 0 16px;
+                                                color:#111827;
+                                                font-size:28px;
                                             ">
                                                 Reset your password
                                             </h1>
 
                                             <p style="
-                                                margin: 0 0 16px;
-                                                color: #4b5563;
-                                                font-size: 16px;
-                                                line-height: 1.6;
+                                                margin:0 0 16px;
+                                                color:#4b5563;
+                                                font-size:16px;
+                                                line-height:1.6;
                                             ">
                                                 Hello {safeName},
                                             </p>
 
                                             <p style="
-                                                margin: 0 0 16px;
-                                                color: #4b5563;
-                                                font-size: 16px;
-                                                line-height: 1.6;
+                                                margin:0 0 16px;
+                                                color:#4b5563;
+                                                font-size:16px;
+                                                line-height:1.6;
                                             ">
-                                                We received a request to
-                                                reset your CareerMatch
-                                                password.
+                                                We received a request to reset
+                                                your CareerMatch password.
                                             </p>
 
                                             <p style="
-                                                margin: 0 0 28px;
-                                                color: #4b5563;
-                                                font-size: 16px;
-                                                line-height: 1.6;
+                                                margin:0 0 28px;
+                                                color:#4b5563;
+                                                font-size:16px;
+                                                line-height:1.6;
                                             ">
-                                                Click the button below to
-                                                choose a new password.
+                                                Click the button below to choose
+                                                a new password.
                                             </p>
 
                                             <a href="{resetLink}"
                                                style="
-                                                   display: inline-block;
-                                                   padding: 14px 24px;
-                                                   background-color: #111827;
-                                                   color: #ffffff;
-                                                   text-decoration: none;
-                                                   border-radius: 10px;
-                                                   font-size: 16px;
-                                                   font-weight: 700;
+                                                   display:inline-block;
+                                                   padding:14px 24px;
+                                                   background:#111827;
+                                                   color:#ffffff;
+                                                   text-decoration:none;
+                                                   border-radius:10px;
+                                                   font-size:16px;
+                                                   font-weight:700;
                                                ">
                                                 Reset Password
                                             </a>
 
                                             <p style="
-                                                margin: 28px 0 8px;
-                                                color: #6b7280;
-                                                font-size: 14px;
-                                                line-height: 1.6;
+                                                margin:28px 0 8px;
+                                                color:#6b7280;
+                                                font-size:14px;
+                                                line-height:1.6;
                                             ">
                                                 If the button does not work,
                                                 copy and paste this link into
@@ -151,19 +184,19 @@ namespace CareerMatch.API.Services
                                             </p>
 
                                             <p style="
-                                                margin: 0;
-                                                word-break: break-all;
-                                                color: #6d5dfc;
-                                                font-size: 13px;
+                                                margin:0;
+                                                color:#6d5dfc;
+                                                font-size:13px;
+                                                word-break:break-all;
                                             ">
                                                 {resetLink}
                                             </p>
 
                                             <p style="
-                                                margin: 28px 0 0;
-                                                color: #9ca3af;
-                                                font-size: 13px;
-                                                line-height: 1.6;
+                                                margin:28px 0 0;
+                                                color:#9ca3af;
+                                                font-size:13px;
+                                                line-height:1.6;
                                             ">
                                                 This link expires in 30 minutes.
                                                 If you did not request this
