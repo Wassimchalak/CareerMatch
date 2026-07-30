@@ -1117,7 +1117,7 @@ const handleToggleJobDescription = (jobId: number) => {
                     "Your best matches are ready."
                 );
             }
-        } } catch (error) {
+        } catch (error) {
     setRevealedMatchJobIds(new Set());
 
     const backendMessage = getErrorMessage(
@@ -1145,8 +1145,7 @@ const handleToggleJobDescription = (jobId: number) => {
             behavior: "smooth",
         });
     }, 100);
-} 
-finally {
+} finally {
             setCalculatingAllScores(false);
         }
     };
