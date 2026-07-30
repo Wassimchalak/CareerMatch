@@ -31,6 +31,19 @@ const cvUploadMessages = [
     "Organizing your career profile...",
     "Just a second more..."
 ];
+
+const matchingMessages = [
+    "🔍 Analyzing your CV and professional background...",
+    "🧠 Identifying your strongest skills and experience...",
+    "📄 Reading and understanding every job description...",
+    "⚖️ Comparing your profile against every job independently...",
+    "🎯 Calculating your compatibility scores...",
+    "💼 Evaluating your skills, experience, and seniority...",
+    "📍 Considering location and employment preferences...",
+    "💡 Preparing personalized explanations and recommendations...",
+    "📊 Ranking jobs from highest to lowest match...",
+    "✅ Finalizing your results..."
+];
 const citiesByCountry: Record<string, string[]> = {
     lebanon: [
         "Beirut",
@@ -405,26 +418,16 @@ function DashboardPage() {
     const [searchingJobs, setSearchingJobs] =
         useState(false);
 
-    const [calculatingJobIds, setCalculatingJobIds] =
-        useState<Set<number>>(
-            new Set()
-        );
+    const [calculatingAllScores, setCalculatingAllScores] =
+        useState(false);
 
-    /*
-        A score is displayed only after the user presses
-        Show Score during the current frontend session.
+    const [matchingMessageIndex, setMatchingMessageIndex] =
+        useState(0);
 
-        Even if the backend returns a cached score during
-        the initial search, it stays hidden until the user
-        explicitly asks to see it.
-    */
     const [revealedMatchJobIds, setRevealedMatchJobIds] =
         useState<Set<number>>(
             readStoredRevealedMatchJobIds
         );
-
-    const [matchErrorsByJobId, setMatchErrorsByJobId] =
-        useState<Record<number, string>>({});
 
     const [savingJobIds, setSavingJobIds] =
         useState<Set<number>>(
@@ -495,6 +498,25 @@ useEffect(() => {
         window.clearInterval(interval);
     };
 }, [uploadingCV]);
+
+    useEffect(() => {
+        if (!calculatingAllScores) {
+            setMatchingMessageIndex(0);
+            return;
+        }
+
+        const interval = window.setInterval(() => {
+            setMatchingMessageIndex((previousIndex) =>
+                previousIndex < matchingMessages.length - 1
+                    ? previousIndex + 1
+                    : previousIndex
+            );
+        }, 5000);
+
+        return () => {
+            window.clearInterval(interval);
+        };
+    }, [calculatingAllScores]);
 
     useEffect(() => {
         sessionStorage.setItem(
@@ -924,7 +946,6 @@ SetStateAction<Set<number>>
             new Set()
         );
 
-        setMatchErrorsByJobId({});
 
         try {
             const requestBody = {
@@ -983,36 +1004,22 @@ SetStateAction<Set<number>>
         }
     };
 
-    const handleCalculateMatch = async (
-        jobId: number
-    ) => {
-        if (calculatingJobIds.has(jobId)) {
+    const handleCalculateAllMatches = async () => {
+        if (calculatingAllScores || jobs.length === 0) {
             return;
         }
 
         clearMessages();
-
-        setMatchErrorsByJobId((currentErrors) => {
-            const updatedErrors = { ...currentErrors };
-            delete updatedErrors[jobId];
-            return updatedErrors;
-        });
-
-        updateIdSet(
-            setCalculatingJobIds,
-            jobId,
-            true
-        );
+        setCalculatingAllScores(true);
 
         try {
             const requestBody = {
-                jobIds: [jobId],
+                jobIds: jobs.map((job) => job.jobId),
                 country: searchForm.country.trim(),
                 city: searchForm.city.trim(),
                 role: searchForm.role.trim(),
                 workType: searchForm.workType,
-                employmentType:
-                    searchForm.employmentType,
+                employmentType: searchForm.employmentType,
             };
 
             const response = await api.post(
@@ -1023,66 +1030,69 @@ SetStateAction<Set<number>>
             const calculatedMatches =
                 normalizeMatchResponse(response.data);
 
-            const calculatedMatch =
-                calculatedMatches.find(
-                    (match) => match.jobId === jobId
-                );
-
-            if (!calculatedMatch) {
+            if (calculatedMatches.length === 0) {
                 throw new Error(
-                    "The match response did not contain the selected job."
+                    "The match response did not contain any job results."
                 );
             }
 
+            const matchesByJobId = new Map(
+                calculatedMatches.map((match) => [
+                    match.jobId,
+                    match,
+                ])
+            );
+
             setJobs((currentJobs) =>
-                currentJobs.map((job) =>
-                    job.jobId === jobId
-                        ? {
-                              ...job,
-                              matchScore:
-                                  calculatedMatch.matchScore,
-                              matchExplanation:
-                                  calculatedMatch.matchExplanation,
-                              recommendation:
-                                  calculatedMatch.recommendation,
-                              matchStatus: "calculated",
-                          }
-                        : job
+                currentJobs
+                    .map((job) => {
+                        const calculatedMatch =
+                            matchesByJobId.get(job.jobId);
+
+                        if (!calculatedMatch) {
+                            return job;
+                        }
+
+                        return {
+                            ...job,
+                            matchScore:
+                                calculatedMatch.matchScore,
+                            matchExplanation:
+                                calculatedMatch.matchExplanation,
+                            recommendation:
+                                calculatedMatch.recommendation,
+                            matchStatus: "calculated",
+                        };
+                    })
+                    .sort(
+                        (firstJob, secondJob) =>
+                            (secondJob.matchScore ?? -1) -
+                            (firstJob.matchScore ?? -1)
+                    )
+            );
+
+            setRevealedMatchJobIds(
+                new Set(
+                    calculatedMatches.map(
+                        (match) => match.jobId
+                    )
                 )
             );
 
-            updateIdSet(
-                setRevealedMatchJobIds,
-                jobId,
-                true
+            setSuccessMessage(
+                "Match scores are ready. Jobs are ranked from highest to lowest match."
             );
         } catch (error) {
-            const message = getErrorMessage(
-                error,
-                "The match score could not be calculated."
-            );
+            setRevealedMatchJobIds(new Set());
 
-            /*
-                Do not reveal a score when matching fails.
-                When no CV exists, the backend returns HTTP 400
-                and its message is displayed in the red alert.
-            */
-            updateIdSet(
-                setRevealedMatchJobIds,
-                jobId,
-                false
+            setErrorMessage(
+                getErrorMessage(
+                    error,
+                    "The match scores could not be calculated."
+                )
             );
-
-            setMatchErrorsByJobId((currentErrors) => ({
-                ...currentErrors,
-                [jobId]: message,
-            }));
         } finally {
-            updateIdSet(
-                setCalculatingJobIds,
-                jobId,
-                false
-            );
+            setCalculatingAllScores(false);
         }
     };
 
@@ -2481,10 +2491,9 @@ groupHeading: (base) => ({
 
                             <p className="empty-state-description">
                                 Enter your preferences to
-                                find available jobs. Match
-                                information remains hidden
-                                until you explicitly press
-                                Show Score.
+                                find available jobs. Then
+                                calculate all match scores
+                                together to rank the results.
                             </p>
 
                             
@@ -2519,6 +2528,65 @@ groupHeading: (base) => ({
                                 gap: "18px",
                             }}
                         >
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gap: "14px",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-end",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        className="dashboard-primary-button"
+                                        disabled={calculatingAllScores}
+                                        onClick={handleCalculateAllMatches}
+                                    >
+                                        {calculatingAllScores
+                                            ? "Calculating Match Scores..."
+                                            : "Calculate Match Scores"}
+                                    </button>
+                                </div>
+
+                                {calculatingAllScores && (
+                                    <div
+                                        role="status"
+                                        aria-live="polite"
+                                        style={{
+                                            display: "grid",
+                                            justifyItems: "center",
+                                            gap: "12px",
+                                            padding: "24px",
+                                            border: "1px solid var(--dashboard-border)",
+                                            borderRadius: "18px",
+                                            background: "rgba(155, 108, 255, 0.055)",
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        <span className="cv-upload-spinner" />
+
+                                        <strong>
+                                            {matchingMessages[matchingMessageIndex]}
+                                        </strong>
+
+                                        <span
+                                            style={{
+                                                color: "var(--dashboard-muted)",
+                                                fontSize: "13px",
+                                                lineHeight: 1.6,
+                                            }}
+                                        >
+                                            The first calculation may take up to one minute.
+                                            Future calculations are usually much faster.
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
                             {jobs.map((job) => {
                                 const scoreWasRevealed =
                                     revealedMatchJobIds.has(
@@ -2530,15 +2598,6 @@ groupHeading: (base) => ({
                                     job.matchScore !==
                                         undefined;
 
-                                const isCalculating =
-                                    calculatingJobIds.has(
-                                        job.jobId
-                                    );
-
-                                const matchError =
-                                    matchErrorsByJobId[
-                                        job.jobId
-                                    ];
 
                                 const isSaving =
                                     savingJobIds.has(
@@ -2763,29 +2822,6 @@ groupHeading: (base) => ({
                                                     </div>
                                                 )}
 
-                                            {matchError && (
-                                                <div
-                                                    role="alert"
-                                                    style={{
-                                                        padding:
-                                                            "14px 16px",
-                                                        border:
-                                                            "1px solid rgba(255, 105, 135, 0.45)",
-                                                        borderRadius:
-                                                            "14px",
-                                                        background:
-                                                            "rgba(255, 105, 135, 0.08)",
-                                                        color:
-                                                            "var(--dashboard-text)",
-                                                        fontSize:
-                                                            "13px",
-                                                        lineHeight: 1.6,
-                                                    }}
-                                                >
-                                                    {matchError}
-                                                </div>
-                                            )}
-
                                             <div
                                                 style={{
                                                     display:
@@ -2795,25 +2831,6 @@ groupHeading: (base) => ({
                                                     gap: "10px",
                                                 }}
                                             >
-                                                {!scoreWasRevealed && (
-                                                    <button
-                                                        type="button"
-                                                        className="dashboard-primary-button"
-                                                        disabled={
-                                                            isCalculating
-                                                        }
-                                                        onClick={() =>
-                                                            handleCalculateMatch(
-                                                                job.jobId
-                                                            )
-                                                        }
-                                                    >
-                                                        {isCalculating
-                                                            ? "Calculating..."
-                                                            : "Show Score"}
-                                                    </button>
-                                                )}
-
                                                 <button
                                                     type="button"
                                                     className="dashboard-primary-button"
