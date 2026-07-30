@@ -465,6 +465,8 @@ function DashboardPage() {
         useState("");
         const [expandedDescriptionJobIds, setExpandedDescriptionJobIds] =
     useState<Set<number>>(new Set());
+    const [noSuitableMatches, setNoSuitableMatches] =
+    useState(false);
 useEffect(() => {
     if (!searchingJobs) {
         setLoadingMessageIndex(0);
@@ -925,6 +927,7 @@ const handleToggleJobDescription = (jobId: number) => {
         }
 
         clearMessages();
+        setNoSuitableMatches(false);
 
         if (
             !searchForm.country.trim() ||
@@ -1024,48 +1027,34 @@ const handleToggleJobDescription = (jobId: number) => {
         }
 
         clearMessages();
+        setNoSuitableMatches(false);
         setCalculatingAllScores(true);
 
-        const originalJobCount = jobs.length;
-
         try {
-            const requestBody = {
-                jobIds: jobs.map((job) => job.jobId),
-                country: searchForm.country.trim(),
-                city: searchForm.city.trim(),
-                role: searchForm.role.trim(),
-                workType: searchForm.workType,
-                employmentType: searchForm.employmentType,
-            };
-
-            const response = await api.post(
+            const response = await api.post<unknown>(
                 "/JobSearch/calculate-matches",
-                requestBody
+                {
+                    jobIds: jobs.map((job) => job.jobId),
+                }
             );
 
             const calculatedMatches =
                 normalizeMatchResponse(response.data);
 
-            if (calculatedMatches.length === 0) {
-                throw new Error(
-                    "The match response did not contain any job results."
-                );
-            }
-
-            const matchesByJobId = new Map(
+            const matchesByJobId = new Map<number, MatchResultResponse>(
                 calculatedMatches.map((match) => [
                     match.jobId,
                     match,
                 ])
             );
 
-            const rankedJobs = jobs
+            const filteredJobs = jobs
                 .map((job) => {
                     const calculatedMatch =
                         matchesByJobId.get(job.jobId);
 
                     if (!calculatedMatch) {
-                        return job;
+                        return null;
                     }
 
                     return {
@@ -1078,77 +1067,60 @@ const handleToggleJobDescription = (jobId: number) => {
                         matchStatus: "calculated",
                     };
                 })
+                .filter(
+                    (job): job is JobSearchResponse =>
+                        job !== null &&
+                        job.matchScore !== null &&
+                        job.matchScore >= 60
+                )
                 .sort(
                     (firstJob, secondJob) =>
-                        (secondJob.matchScore ?? -1) -
-                        (firstJob.matchScore ?? -1)
+                        (secondJob.matchScore ?? 0) -
+                        (firstJob.matchScore ?? 0)
                 );
 
-            const bestMatches =
-                rankedJobs.length > 6
-                    ? rankedJobs.slice(0, 4)
-                    : rankedJobs.length > 3
-                      ? rankedJobs.slice(0, 3)
-                      : rankedJobs;
+            setJobs(filteredJobs);
 
-            setJobs(bestMatches);
+            sessionStorage.setItem(
+                SEARCH_JOBS_STORAGE_KEY,
+                JSON.stringify(filteredJobs)
+            );
+
+            if (filteredJobs.length === 0) {
+                setNoSuitableMatches(true);
+                setRevealedMatchJobIds(new Set());
+                return;
+            }
 
             setRevealedMatchJobIds(
                 new Set(
-                    bestMatches
-                        .filter(
-                            (job) =>
-                                matchesByJobId.has(job.jobId)
-                        )
-                        .map((job) => job.jobId)
+                    filteredJobs.map((job) => job.jobId)
                 )
             );
+        } catch (error) {
+            setRevealedMatchJobIds(new Set());
 
-            if (originalJobCount > 6) {
-                setSuccessMessage(
-                    "Your best matches are ready. Showing your top 4 jobs."
-                );
-            } else if (originalJobCount > 3) {
-                setSuccessMessage(
-                    "Your best matches are ready. Showing your top 3 jobs."
+            const backendMessage = getErrorMessage(
+                error,
+                "The match scores could not be calculated."
+            );
+
+            if (
+                backendMessage
+                    .toLowerCase()
+                    .includes("cv")
+            ) {
+                setErrorMessage(
+                    "Please upload a CV before calculating your best matches."
                 );
             } else {
-                setSuccessMessage(
-                    "Your best matches are ready."
-                );
+                setErrorMessage(backendMessage);
             }
-        } catch (error) {
-    setRevealedMatchJobIds(new Set());
-
-    const backendMessage = getErrorMessage(
-        error,
-        "The match scores could not be calculated."
-    );
-
-    if (
-        backendMessage.toLowerCase().includes("cv") ||
-        (
-            axios.isAxiosError(error) &&
-            error.response?.status === 400
-        )
-    ) {
-        setErrorMessage(
-            "Please upload a CV before calculating your best matches."
-        );
-    } else {
-        setErrorMessage(backendMessage);
-    }
-
-    window.setTimeout(() => {
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-        });
-    }, 100);
-} finally {
+        } finally {
             setCalculatingAllScores(false);
         }
     };
+
     const handleToggleSavedJob = async (
         jobId: number
     ) => {
@@ -2555,6 +2527,7 @@ groupHeading: (base) => ({
 
                     {hasSearched &&
                         !searchingJobs &&
+                        !noSuitableMatches &&
                         jobs.length === 0 && (
                             <section className="dashboard-empty-state">
                                 <p className="empty-state-label">
@@ -2573,6 +2546,44 @@ groupHeading: (base) => ({
                                 </p>
                             </section>
                         )}
+
+                    {noSuitableMatches && (
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="dashboard-card"
+                            style={{
+                                padding: "22px",
+                                marginBottom: "20px",
+                                borderColor:
+                                    "rgba(255, 193, 7, 0.45)",
+                                background:
+                                    "rgba(255, 193, 7, 0.08)",
+                                textAlign: "center",
+                            }}
+                        >
+                            <strong
+                                style={{
+                                    display: "block",
+                                    marginBottom: "8px",
+                                    fontSize: "18px",
+                                }}
+                            >
+                                No strong matches were found
+                            </strong>
+
+                            <span
+                                style={{
+                                    lineHeight: 1.6,
+                                    opacity: 0.85,
+                                }}
+                            >
+                                Your scores are too low for these jobs.
+                                None of the calculated matches reached 60%.
+                                Try another role or update your CV.
+                            </span>
+                        </div>
+                    )}
 
                     {jobs.length > 0 && (
                         <section
@@ -2628,16 +2639,7 @@ groupHeading: (base) => ({
                                             {matchingMessages[matchingMessageIndex]}
                                         </strong>
 
-                                        <span
-                                            style={{
-                                                color: "var(--dashboard-muted)",
-                                                fontSize: "13px",
-                                                lineHeight: 1.6,
-                                            }}
-                                        >
-                                            The first calculation may take up to one minute.
-                                            Future calculations are usually much faster.
-                                        </span>
+                                       
                                     </div>
                                 )}
                             </div>
