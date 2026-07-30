@@ -497,13 +497,21 @@ JOBS:
             string cvSkillsText,
             string jobTitle,
             string companyName,
-            string jobDescription
+            string jobDescription,
+            string matchRecommendation
            )
         {
             if (string.IsNullOrWhiteSpace(originalCVText))
             {
                 throw new ArgumentException(
                     "Original CV text cannot be empty."
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(matchRecommendation))
+            {
+                throw new ArgumentException(
+                    "Match recommendation cannot be empty."
                 );
             }
 
@@ -600,11 +608,21 @@ FACTUAL ACCURACY:
 - Do not exaggerate qualifications.
 - Do not remove meaningful factual information.
 
+MATCH RECOMMENDATION GUIDANCE:
+
+- Use the saved MATCH RECOMMENDATION as guidance for what to emphasize, clarify, or reorganize.
+- The recommendation was generated during job matching; do not generate a new recommendation.
+- Apply only the parts of the recommendation that are supported by the ORIGINAL CV and CANDIDATE SKILLS.
+- When the recommendation mentions a missing skill, technology, qualification, certification, project, or experience that is not present in the candidate data, do not add it.
+- Do not claim that the candidate strengthened, learned, or possesses a missing requirement.
+- A missing requirement may influence wording only by emphasizing truthful transferable or related experience already present.
+- Never copy the recommendation into the refined CV as advice, a note, or a separate section.
+
 REFINEMENT RULES:
 
 - Improve grammar, wording, clarity, structure, and ATS readability.
 - Correct language and spelling mistakes.
-- Emphasize only existing qualifications relevant to the target job.
+- Emphasize only existing qualifications relevant to the target job and supported by the saved recommendation.
 - Reorganize existing information when useful.
 - Use a clean single-column CV structure.
 - Use clear headings.
@@ -642,7 +660,12 @@ JOB DESCRIPTION:
 CANDIDATE SKILLS:
 ---BEGIN CANDIDATE SKILLS---
 {cvSkillsText}
----END CANDIDATE SKILLS---";
+---END CANDIDATE SKILLS---
+
+SAVED MATCH RECOMMENDATION:
+---BEGIN MATCH RECOMMENDATION---
+{CleanText(matchRecommendation)}
+---END MATCH RECOMMENDATION---";
 
             return await SendPromptToOpenAIAsync(prompt);
         }
