@@ -63,38 +63,38 @@ namespace CareerMatch.API.Services
                 return true;
             }
 
-            var match =
-                await connection.QueryFirstOrDefaultAsync(
-                    @"
-                    SELECT TOP 1
-                        jm.FinalScore,
-                        jm.MatchExplanation,
-                        jm.Recommendation
-                    FROM JobMatches jm
-                    INNER JOIN
-                    (
-                        SELECT TOP 1
-                            CVId,
-                            CVTextHash
-                        FROM CVs
-                        WHERE UserId = @UserId
-                        ORDER BY
-                            UploadedAt DESC,
-                            CVId DESC
-                    ) latestCv
-                        ON jm.CVTextHash = latestCv.CVTextHash
-                    WHERE jm.UserId = @UserId
-                      AND jm.JobId = @JobId
-                    ORDER BY
-                        jm.CreatedAt DESC,
-                        jm.MatchId DESC;
-                    ",
-                    new
-                    {
-                        UserId = userId,
-                        request.JobId
-                    }
-                );
+          var match =
+    await connection.QueryFirstOrDefaultAsync(
+        @"
+        SELECT TOP 1
+            jm.FinalScore,
+            jm.MatchExplanation,
+            jm.Recommendation
+        FROM JobMatches jm
+        INNER JOIN
+        (
+            SELECT TOP 1
+                CVId,
+                CVTextHash
+            FROM CVs
+            WHERE UserId = @UserId
+            ORDER BY
+                UploadedAt DESC,
+                CVId DESC
+        ) latestCv
+            ON jm.CVTextHash = latestCv.CVTextHash
+        WHERE jm.UserId = @UserId
+          AND jm.JobId = @JobId
+        ORDER BY
+            jm.CreatedAt DESC,
+            jm.JobMatchId DESC;
+        ",
+        new
+        {
+            UserId = userId,
+            request.JobId
+        }
+    );
 
             await connection.ExecuteAsync(
                 @"
