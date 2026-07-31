@@ -285,22 +285,25 @@ const initialSearchForm: JobSearchForm = {
     employmentType: "",
 };
 
-const SEARCH_JOBS_STORAGE_KEY =
-    "careerMatchLatestSearchJobs";
+const getCurrentUserStorageSuffix = () =>
+    localStorage.getItem("userId") ?? "anonymous";
 
-const SEARCH_FORM_STORAGE_KEY =
-    "careerMatchLatestSearchForm";
+const getSearchJobsStorageKey = () =>
+    `careerMatchLatestSearchJobs_${getCurrentUserStorageSuffix()}`;
 
-const HAS_SEARCHED_STORAGE_KEY =
-    "careerMatchHasSearched";
+const getSearchFormStorageKey = () =>
+    `careerMatchLatestSearchForm_${getCurrentUserStorageSuffix()}`;
 
-const REVEALED_MATCHES_STORAGE_KEY =
-    "careerMatchRevealedMatchJobIds";
+const getHasSearchedStorageKey = () =>
+    `careerMatchHasSearched_${getCurrentUserStorageSuffix()}`;
+
+const getRevealedMatchesStorageKey = () =>
+    `careerMatchRevealedMatchJobIds_${getCurrentUserStorageSuffix()}`;
 
 const readStoredSearchForm = (): JobSearchForm => {
     try {
         const storedValue = sessionStorage.getItem(
-            SEARCH_FORM_STORAGE_KEY
+            getSearchFormStorageKey()
         );
 
         if (!storedValue) {
@@ -315,7 +318,7 @@ const readStoredSearchForm = (): JobSearchForm => {
         };
     } catch {
         sessionStorage.removeItem(
-            SEARCH_FORM_STORAGE_KEY
+            getSearchFormStorageKey()
         );
 
         return initialSearchForm;
@@ -327,7 +330,7 @@ const readStoredJobs =
         try {
             const storedValue =
                 sessionStorage.getItem(
-                    SEARCH_JOBS_STORAGE_KEY
+                    getSearchJobsStorageKey()
                 );
 
             if (!storedValue) {
@@ -341,7 +344,7 @@ const readStoredJobs =
                 : [];
         } catch {
             sessionStorage.removeItem(
-                SEARCH_JOBS_STORAGE_KEY
+                getSearchJobsStorageKey()
             );
 
             return [];
@@ -350,14 +353,14 @@ const readStoredJobs =
 
 const readStoredHasSearched = () =>
     sessionStorage.getItem(
-        HAS_SEARCHED_STORAGE_KEY
+        getHasSearchedStorageKey()
     ) === "true";
 
 const readStoredRevealedMatchJobIds = () => {
     try {
         const storedValue =
             sessionStorage.getItem(
-                REVEALED_MATCHES_STORAGE_KEY
+                getRevealedMatchesStorageKey()
             );
 
         if (!storedValue) {
@@ -378,7 +381,7 @@ const readStoredRevealedMatchJobIds = () => {
         );
     } catch {
         sessionStorage.removeItem(
-            REVEALED_MATCHES_STORAGE_KEY
+            getRevealedMatchesStorageKey()
         );
 
         return new Set<number>();
@@ -472,6 +475,15 @@ function DashboardPage() {
     useState<Set<number>>(new Set());
     const [noSuitableMatches, setNoSuitableMatches] =
     useState(false);
+
+    useEffect(() => {
+        // Remove the old shared storage keys so data from another
+        // account can never be restored after this update.
+        sessionStorage.removeItem("careerMatchLatestSearchJobs");
+        sessionStorage.removeItem("careerMatchLatestSearchForm");
+        sessionStorage.removeItem("careerMatchHasSearched");
+        sessionStorage.removeItem("careerMatchRevealedMatchJobIds");
+    }, []);
     useEffect(() => {
     if (!errorMessage || !errorMessageRef.current) {
         return;
@@ -539,7 +551,7 @@ useEffect(() => {
 
     useEffect(() => {
         sessionStorage.setItem(
-            SEARCH_FORM_STORAGE_KEY,
+            getSearchFormStorageKey(),
             JSON.stringify(searchForm)
         );
     }, [searchForm]);
@@ -547,26 +559,26 @@ useEffect(() => {
     useEffect(() => {
         if (jobs.length > 0) {
             sessionStorage.setItem(
-                SEARCH_JOBS_STORAGE_KEY,
+                getSearchJobsStorageKey(),
                 JSON.stringify(jobs)
             );
         } else {
             sessionStorage.removeItem(
-                SEARCH_JOBS_STORAGE_KEY
+                getSearchJobsStorageKey()
             );
         }
     }, [jobs]);
 
     useEffect(() => {
         sessionStorage.setItem(
-            HAS_SEARCHED_STORAGE_KEY,
+            getHasSearchedStorageKey(),
             String(hasSearched)
         );
     }, [hasSearched]);
 
     useEffect(() => {
         sessionStorage.setItem(
-            REVEALED_MATCHES_STORAGE_KEY,
+            getRevealedMatchesStorageKey(),
             JSON.stringify(
                 Array.from(
                     revealedMatchJobIds
@@ -794,27 +806,29 @@ const handleToggleJobDescription = (jobId: number) => {
     });
 };
     const handleLogout = () => {
+        // Clear this user's dashboard state before removing userId,
+        // because the storage keys are generated from that ID.
+        sessionStorage.removeItem(
+            getSearchJobsStorageKey()
+        );
+
+        sessionStorage.removeItem(
+            getSearchFormStorageKey()
+        );
+
+        sessionStorage.removeItem(
+            getHasSearchedStorageKey()
+        );
+
+        sessionStorage.removeItem(
+            getRevealedMatchesStorageKey()
+        );
+
         localStorage.removeItem("token");
         localStorage.removeItem("userId");
         localStorage.removeItem("fullName");
         localStorage.removeItem("email");
         localStorage.removeItem("expiresAt");
-
-        sessionStorage.removeItem(
-            SEARCH_JOBS_STORAGE_KEY
-        );
-
-        sessionStorage.removeItem(
-            SEARCH_FORM_STORAGE_KEY
-        );
-
-        sessionStorage.removeItem(
-            HAS_SEARCHED_STORAGE_KEY
-        );
-
-        sessionStorage.removeItem(
-            REVEALED_MATCHES_STORAGE_KEY
-        );
 
         navigate("/auth", {
             replace: true,
@@ -963,7 +977,7 @@ const handleToggleJobDescription = (jobId: number) => {
         setJobs([]);
 
         sessionStorage.removeItem(
-            SEARCH_JOBS_STORAGE_KEY
+            getSearchJobsStorageKey()
         );
 
         /*
@@ -1011,7 +1025,7 @@ const handleToggleJobDescription = (jobId: number) => {
             setJobs(returnedJobs);
 
             sessionStorage.setItem(
-                SEARCH_JOBS_STORAGE_KEY,
+                getSearchJobsStorageKey(),
                 JSON.stringify(returnedJobs)
             );
 
@@ -1127,7 +1141,7 @@ const handleToggleJobDescription = (jobId: number) => {
             setJobs(strongMatches);
 
             sessionStorage.setItem(
-                SEARCH_JOBS_STORAGE_KEY,
+                getSearchJobsStorageKey(),
                 JSON.stringify(strongMatches)
             );
 
@@ -1136,7 +1150,7 @@ const handleToggleJobDescription = (jobId: number) => {
                 setRevealedMatchJobIds(new Set<number>());
 
                 sessionStorage.removeItem(
-                    REVEALED_MATCHES_STORAGE_KEY
+                    getRevealedMatchesStorageKey()
                 );
 
                 return;
@@ -1151,7 +1165,7 @@ const handleToggleJobDescription = (jobId: number) => {
             setRevealedMatchJobIds(revealedJobIds);
 
             sessionStorage.setItem(
-                REVEALED_MATCHES_STORAGE_KEY,
+                getRevealedMatchesStorageKey(),
                 JSON.stringify(
                     Array.from(revealedJobIds)
                 )
