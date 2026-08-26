@@ -318,7 +318,11 @@ namespace CareerMatch.API.Services
 
         // Version v2 uses /search, not /search-v2.
         string url =
-    $"https://jsearch.p.rapidapi.com/search-v2?query={encodedQuery}&num_pages=1&country={countryCode}&date_posted=all";
+    $"https://{host}/search-v2" +
+    $"?query={Uri.EscapeDataString(query)}" +
+    "&num_pages=1" +
+    $"&country={Uri.EscapeDataString(countryCode)}" +
+    "&date_posted=all";
 
         using var httpRequest =
             new HttpRequestMessage(
