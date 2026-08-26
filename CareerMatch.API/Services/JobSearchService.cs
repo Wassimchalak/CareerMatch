@@ -34,22 +34,12 @@ namespace CareerMatch.API.Services
                 "Hybrid"
             };
 
-        // Sends HTTP requests to JSearch.
         private readonly HttpClient _httpClient;
-
-        // Reads JSearch configuration values.
         private readonly IConfiguration _configuration;
 
-        // Creates SQL Server connections for Dapper.
         private readonly DbConnectionFactory _dbConnectionFactory;
-
-        // Classifies uncached jobs in one OpenAI request.
         private readonly AIService _aiService;
-
-        // Calculates and caches candidate/job match results.
         private readonly MatchingService _matchingService;
-
-        // Receives dependencies through dependency injection.
         public JobSearchService(
             HttpClient httpClient,
             IConfiguration configuration,
@@ -388,16 +378,7 @@ namespace CareerMatch.API.Services
                 jsonResponse
             );
 
-        // The v2 response normally has:
-        //
-        // {
-        //     "status": "OK",
-        //     "data": [
-        //         { job_id, job_title, ... }
-        //     ]
-        // }
-        //
-        // Therefore, data itself is the jobs array.
+ 
         if (!json.RootElement.TryGetProperty(
                 "data",
                 out JsonElement dataElement
@@ -412,15 +393,12 @@ namespace CareerMatch.API.Services
 
         JsonElement jobsArray;
 
-        // Normal v2 response:
-        // "data": [...]
+      
         if (dataElement.ValueKind ==
             JsonValueKind.Array)
         {
             jobsArray = dataElement;
         }
-        // Defensive support in case the provider returns:
-        // "data": { "jobs": [...] }
         else if (
             dataElement.ValueKind ==
                 JsonValueKind.Object
@@ -500,8 +478,6 @@ namespace CareerMatch.API.Services
                     "job_apply_link"
                 );
 
-            // Some results may not have job_apply_link.
-            // Use the Google Jobs link as a fallback.
             if (string.IsNullOrWhiteSpace(
                 jobUrl
             ))
@@ -577,8 +553,6 @@ namespace CareerMatch.API.Services
                     JobUrl =
                         jobUrl,
 
-                    // These values will be loaded from the SQL cache
-                    // or generated later by OpenAI.
                     EmploymentType =
                         null,
 
@@ -841,9 +815,6 @@ namespace CareerMatch.API.Services
 
                 return false;
             }
-
-            // The title/description changed or the cache is incomplete.
-            // Clear stale values before adding the job to the batch request.
             job.EmploymentType = null;
             job.WorkMode = null;
             job.ClassifiedAt = null;
@@ -876,7 +847,6 @@ namespace CareerMatch.API.Services
         /// <summary>
         /// Builds a JSearch query using the selected role, employment type,
         /// work mode, and optional city.
-        ///
         /// These keywords improve retrieval only.
         /// OpenAI still classifies every uncached job using title and description.
         /// </summary>

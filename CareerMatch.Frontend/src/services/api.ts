@@ -28,31 +28,100 @@ function clearAuthenticationData() {
     );
 }
 
+function isPublicAuthRequest(
+    requestUrl: string
+) {
+    return (
+        requestUrl.includes(
+            "/Auth/login"
+        ) ||
+        requestUrl.includes(
+            "/Auth/register"
+        ) ||
+        requestUrl.includes(
+            "/Auth/forgot-password"
+        ) ||
+        requestUrl.includes(
+            "/Auth/reset-password"
+        )
+    );
+}
+
 api.interceptors.request.use(
     (config) => {
+        const requestUrl =
+            config.url || "";
+
+        /*
+         * Login, register, forgot-password,
+         * and reset-password must always be
+         * allowed to reach the backend.
+         *
+         * An expired token from an old session
+         * should never block these requests.
+         */
+        if (
+            isPublicAuthRequest(
+                requestUrl
+            )
+        ) {
+            return config;
+        }
+
         const token =
-            localStorage.getItem("token");
+            localStorage.getItem(
+                "token"
+            );
 
         const expiresAt =
-            localStorage.getItem("expiresAt");
+            localStorage.getItem(
+                "expiresAt"
+            );
 
-        if (expiresAt) {
+        /*
+         * Only check expiration when there
+         * is actually a stored token.
+         */
+        if (
+            token &&
+            expiresAt
+        ) {
             const expirationDate =
-                new Date(expiresAt);
+                new Date(
+                    expiresAt
+                );
+
+            const expirationTime =
+                expirationDate.getTime();
+
+            const tokenHasValidExpirationDate =
+                !Number.isNaN(
+                    expirationTime
+                );
 
             const tokenHasExpired =
-                !Number.isNaN(
-                    expirationDate.getTime()
-                ) &&
-                expirationDate.getTime() <=
+                tokenHasValidExpirationDate &&
+                expirationTime <=
                     Date.now();
 
-            if (tokenHasExpired) {
+            if (
+                tokenHasExpired
+            ) {
                 clearAuthenticationData();
 
-                window.location.replace(
+                /*
+                 * Avoid repeatedly replacing
+                 * the page when already on
+                 * the authentication page.
+                 */
+                if (
+                    window.location.pathname !==
                     "/auth"
-                );
+                ) {
+                    window.location.replace(
+                        "/auth"
+                    );
+                }
 
                 return Promise.reject(
                     new Error(
@@ -62,6 +131,10 @@ api.interceptors.request.use(
             }
         }
 
+        /*
+         * Add the JWT only to requests that
+         * require authentication.
+         */
         if (token) {
             config.headers.Authorization =
                 `Bearer ${token}`;
@@ -69,8 +142,11 @@ api.interceptors.request.use(
 
         return config;
     },
+
     (error) => {
-        return Promise.reject(error);
+        return Promise.reject(
+            error
+        );
     }
 );
 
@@ -78,42 +154,33 @@ api.interceptors.response.use(
     (response) => {
         return response;
     },
+
     (error) => {
         const status =
             error.response?.status;
 
         const requestUrl =
-            error.config?.url || "";
+            error.config?.url ||
+            "";
 
-        const isLoginRequest =
-            requestUrl.includes(
-                "/Auth/login"
+        const publicAuthRequest =
+            isPublicAuthRequest(
+                requestUrl
             );
 
-        const isRegisterRequest =
-            requestUrl.includes(
-                "/Auth/register"
-            );
-
-        const isForgotPasswordRequest =
-            requestUrl.includes(
-                "/Auth/forgot-password"
-            );
-
-        const isResetPasswordRequest =
-            requestUrl.includes(
-                "/Auth/reset-password"
-            );
-
-        const isPublicAuthRequest =
-            isLoginRequest ||
-            isRegisterRequest ||
-            isForgotPasswordRequest ||
-            isResetPasswordRequest;
-
+        /*
+         * A 401 from a protected endpoint
+         * means the current authentication
+         * session is no longer valid.
+         *
+         * Do not apply this behavior to
+         * login/register/password endpoints,
+         * because a 401 there simply means
+         * the authentication attempt failed.
+         */
         if (
             status === 401 &&
-            !isPublicAuthRequest
+            !publicAuthRequest
         ) {
             clearAuthenticationData();
 
@@ -127,7 +194,9 @@ api.interceptors.response.use(
             }
         }
 
-        return Promise.reject(error);
+        return Promise.reject(
+            error
+        );
     }
 );
 

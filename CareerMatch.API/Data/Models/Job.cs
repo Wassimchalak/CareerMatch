@@ -16,21 +16,16 @@ namespace CareerMatch.API.Models
 
         public string Description { get; set; } = string.Empty;
 
-        // Used for candidate matching cache.
         public string DescriptionHash { get; set; } = string.Empty;
 
-        // Used for OpenAI classification cache.
         public string? ClassificationHash { get; set; }
 
         public string JobUrl { get; set; } = string.Empty;
 
-        // Filled by OpenAI.
         public string? EmploymentType { get; set; }
 
-        // Filled by OpenAI.
         public string? WorkMode { get; set; }
 
-        // When OpenAI classified this job.
         public DateTime? ClassifiedAt { get; set; }
 
         public DateTime? PostedDate { get; set; }

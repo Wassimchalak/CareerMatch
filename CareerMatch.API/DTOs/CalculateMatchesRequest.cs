@@ -1,7 +1,6 @@
 namespace CareerMatch.API.DTOs
 {
-    // Contains the jobs and preferences needed for matching.
-    // UserId is intentionally read from the authenticated JWT.
+  
     public class CalculateMatchesRequest
     {
         public List<int> JobIds { get; set; } = new();

@@ -6,43 +6,22 @@ using System.Text.Json;
 
 namespace CareerMatch.API.Services
 {
-    /// <summary>
-    /// Handles all communication with OpenAI.
-    /// Main responsibilities:
-    /// - Extract the candidate's primary role and skills from a CV.
-    /// - Extract the primary role and required skills from a job description.
-    /// - Match one candidate against multiple jobs in one OpenAI request.
-    /// - Rewrite a CV for a specific job.
-    /// - Generate a personalized cover letter.
-    /// - Generate expected interview questions
-    /// - classifies jobs employment tyoe and workmMode
-    /// </summary>
     public class AIService
     {
-        // Maximum number of job-description characters sent during matching.
-        // Keeping this small reduces prompt size, token usage, and response time.
         private const int MatchDescriptionLimit = 3000;
 
-        // A slightly larger limit is used for CV rewriting and cover letters,
-        // where more job context helps produce better writing.
         private const int DocumentJobDescriptionLimit = 3000;
 
-        // Used to send HTTP requests to the OpenAI API.
         private readonly HttpClient _httpClient;
 
-        // Used to read the API key and model from appsettings.json.
         private readonly IConfiguration _configuration;
 
-        // Shared JSON settings used when reading model responses.
         private static readonly JsonSerializerOptions JsonOptions =
             new()
             {
                 PropertyNameCaseInsensitive = true
             };
 
-        /// <summary>
-        /// Receives required dependencies through ASP.NET Core dependency injection.
-        /// </summary>
         public AIService(
             HttpClient httpClient,
             IConfiguration configuration)
@@ -51,20 +30,14 @@ namespace CareerMatch.API.Services
             _configuration = configuration;
         }
 
-        /// <summary>
-        /// Extracts the candidate's main role and normalized skills from a CV.
-        /// </summary>
         public async Task<AICVAnalysisResult> ExtractSkillsAsync(
             string cvText)
         {
-            // Return an empty result if no readable CV text exists.
             if (string.IsNullOrWhiteSpace(cvText))
                 return new AICVAnalysisResult();
 
-            // Remove unnecessary whitespace before sending the CV to OpenAI.
             string cleanedCVText = CleanText(cvText);
 
-            // Keep the prompt short and request only the exact JSON structure needed.
           string prompt = $@"
 You are validating and analyzing an uploaded document.
 
@@ -238,10 +211,8 @@ DOCUMENT:
 ---BEGIN DOCUMENT---
 {cleanedCVText}
 ---END DOCUMENT---";
-            // Send the prompt using the single configured model.
             string outputText =
                 await SendPromptToOpenAIAsync(prompt);
-            // Convert the returned JSON into the expected DTO.
             return JsonSerializer.Deserialize<AICVAnalysisResult>(
                        outputText,
                        JsonOptions
@@ -249,20 +220,13 @@ DOCUMENT:
                    ?? new AICVAnalysisResult();
         }
 
-        /// <summary>
-        /// Extracts a job's main role and required skills.
-        /// This method remains available for CV refinement and cover-letter features,
-        /// even though live job matching no longer depends on stored job skills.
-        /// </summary>
         public async Task<AIJobAnalysisResult>
             ExtractRequiredSkillsAsync(
                 string jobDescription)
         {
-            // Return an empty result when the description is missing.
             if (string.IsNullOrWhiteSpace(jobDescription))
                 return new AIJobAnalysisResult();
 
-            // Shorten the description to reduce token usage.
             string preparedDescription =
                 PrepareJobDescription(
                     jobDescription,
@@ -306,17 +270,6 @@ JOB:
                    ?? new AIJobAnalysisResult();
         }
 
-        /// <summary>
-        /// Matches one candidate against multiple jobs in one OpenAI request.
-        ///
-        /// The method sends:
-        /// - Candidate primary role.
-        /// - Candidate extracted skills and years of experience.
-        /// - User search preferences.
-        /// - The unique jobs that still require matching.
-        ///
-        /// It does not send the full CV text.
-        /// </summary>
         public async Task<List<AIMatchResult>>
             GenerateJobMatchesAsync(
                 string cvPrimaryRole,
@@ -324,11 +277,9 @@ JOB:
                 JobSearchRequest preferences,
                 IReadOnlyCollection<Job> jobs)
         {
-            // No jobs means there is nothing to send to OpenAI.
             if (jobs.Count == 0)
                 return new List<AIMatchResult>();
 
-            // Build a small structured candidate profile.
             var candidate = new
             {
                 role = cvPrimaryRole,
@@ -340,8 +291,6 @@ JOB:
                 })
             };
 
-            // Send only fields that affect matching.
-            // Do not send company name, job URL, external id, or database hashes.
             var jobInputs = jobs.Select(job => new
             {
                 id = job.JobId,
@@ -351,14 +300,12 @@ JOB:
                 mode = job.WorkMode,
                 type = job.EmploymentType,
 
-                // Preserve only the most useful parts of long descriptions.
                 description = PrepareJobDescription(
                     job.Description,
                     MatchDescriptionLimit
                 )
             });
 
-            // Include the preferences selected by the user.
             var searchPreferences = new
             {
                 country = preferences.Country,
@@ -368,7 +315,6 @@ JOB:
                 type = preferences.EmploymentType
             };
 
-            // Convert all structured data to compact JSON.
             string candidateJson =
                 JsonSerializer.Serialize(candidate);
 
@@ -378,7 +324,6 @@ JOB:
             string jobsJson =
                 JsonSerializer.Serialize(jobInputs);
 
-            // Ask for one short result per supplied job id.
           string prompt = $@"
 Match one candidate against every job independently and fairly.
 
@@ -462,11 +407,9 @@ PREFERENCES:
 
 JOBS:
 {jobsJson}";
-            // Send one OpenAI request for all jobs.
             string outputText =
                 await SendPromptToOpenAIAsync(prompt);
 
-            // Deserialize the wrapper object containing the matches array.
             var response =
                 JsonSerializer.Deserialize<AIJobMatchesResponse>(
                     outputText,
@@ -474,12 +417,10 @@ JOBS:
                 )
                 ?? new AIJobMatchesResponse();
 
-            // Build a set of real job ids so unexpected ids are ignored.
             var validJobIds = jobs
                 .Select(job => job.JobId)
                 .ToHashSet();
 
-            // Keep only valid, unique results.
             return response.Matches
                 .Where(match =>
                     validJobIds.Contains(match.JobId))
@@ -488,9 +429,6 @@ JOBS:
                 .ToList();
         }
 
-        /// <summary>
-        /// Rewrites a CV for a specific job while preserving factual accuracy.
-        /// </summary>
         public async Task<string> RefineCVForJobAsync(
             string originalCVText,
             string cvSkillsText,
@@ -506,7 +444,6 @@ JOBS:
                 );
             }
 
-            // Reduce the job-description size before sending it.
             string preparedJobDescription =
                 PrepareJobDescription(
                     jobDescription,
@@ -645,9 +582,6 @@ CANDIDATE SKILLS:
 
             return await SendPromptToOpenAIAsync(prompt);
         }
-        /// <summary>
-        /// Generates a personalized and truthful cover letter.
-        /// </summary>
         public async Task<string> GenerateCoverLetterAsync(
             string candidateCVText,
             string candidateSkillsText,
@@ -663,7 +597,6 @@ CANDIDATE SKILLS:
                 );
             }
 
-            // Reduce the job-description size before sending it.
             string preparedJobDescription =
                 PrepareJobDescription(
                     jobDescription,
@@ -705,24 +638,13 @@ CV:
             return await SendPromptToOpenAIAsync(prompt);
         }
 
-        /// <summary>
-        /// Sends a prompt to the OpenAI Responses API.
-        ///
-        /// This version uses one model only:
-        /// OpenAI:Model from appsettings.json.
-        /// </summary>
-        // Add this public method inside AIService, before SendPromptToOpenAIAsync.
 
-        /// <summary>
-        /// Generates exactly five theoretical and five practical interview questions.
-        /// </summary>
        public async Task<AIInterviewQuestionsResult>
     GenerateInterviewQuestionsAsync(
         string jobTitle,
         string companyName,
         string jobDescription)
 {
-    // Reject an empty job description because it is the main generation source.
     if (string.IsNullOrWhiteSpace(jobDescription))
     {
         throw new ArgumentException(
@@ -730,14 +652,12 @@ CV:
         );
     }
 
-    // Shortens the description using the existing document limit.
     string preparedJobDescription =
         PrepareJobDescription(
             jobDescription,
             DocumentJobDescriptionLimit
         );
 
-    // Defines the exact JSON contract expected by AIInterviewQuestionsResult.
   string prompt = $@"
 Generate interview preparation for this exact job.
 
@@ -828,18 +748,15 @@ JOB DESCRIPTION:
 ---BEGIN JOB DESCRIPTION---
 {preparedJobDescription}
 ---END JOB DESCRIPTION---";
-    // Sends one request to the existing OpenAI Responses API helper.
     string outputText =
         await SendPromptToOpenAIAsync(prompt);
 
-    // Converts the returned JSON into the interview-question DTO.
     AIInterviewQuestionsResult? result =
         JsonSerializer.Deserialize<AIInterviewQuestionsResult>(
             outputText,
             JsonOptions
         );
 
-    // Rejects an invalid or empty OpenAI result.
     if (result == null)
     {
         throw new Exception(
@@ -847,19 +764,8 @@ JOB DESCRIPTION:
         );
     }
 
-    // Returns the structured result to GeneratedInterviewQuestionsService.
     return result;
 }
-        /// <summary>
-        /// Classifies multiple jobs in one OpenAI request.
-        ///
-        /// OpenAI analyzes BOTH title and description and determines:
-        /// - EmploymentType: Full-time, Part-time, Contract, or Internship.
-        /// - WorkMode: On-site, Remote, or Hybrid.
-        ///
-        /// Classification caching and SQL persistence remain the responsibility
-        /// of JobSearchService.
-        /// </summary>
         public async Task<List<AIJobClassificationItem>>
             ClassifyJobsAsync(
                 IReadOnlyCollection<Job> jobs)
@@ -981,18 +887,14 @@ JOBS:
         private async Task<string> SendPromptToOpenAIAsync(
             string prompt)
         {
-            // Read the API key.
             string apiKey =
                 _configuration["OpenAI:ApiKey"]
                 ?? string.Empty;
 
-            // Read the single model.
-            // The old working fallback is restored.
             string model =
                 _configuration["OpenAI:Model"]
                 ?? "gpt-4.1-mini";
 
-            // Stop immediately if the API key is missing.
             if (string.IsNullOrWhiteSpace(apiKey) ||
                 apiKey == "ApiKey")
             {
@@ -1001,28 +903,24 @@ JOBS:
                 );
             }
 
-            // The Responses API requires the field name to be exactly "model".
             var requestBody = new
             {
                 model,
                 input = prompt
             };
 
-            // Create the HTTP POST request.
             using var request =
                 new HttpRequestMessage(
                     HttpMethod.Post,
                     "https://api.openai.com/v1/responses"
                 );
 
-            // Add the API key as a Bearer token.
             request.Headers.Authorization =
                 new AuthenticationHeaderValue(
                     "Bearer",
                     apiKey
                 );
 
-            // Serialize the request body as JSON.
             request.Content =
                 new StringContent(
                     JsonSerializer.Serialize(requestBody),
@@ -1030,15 +928,12 @@ JOBS:
                     "application/json"
                 );
 
-            // Send the request.
             using var response =
                 await _httpClient.SendAsync(request);
 
-            // Read the complete OpenAI response.
             string responseString =
                 await response.Content.ReadAsStringAsync();
 
-            // Throw the actual API error instead of silently hiding it.
             if (!response.IsSuccessStatusCode)
             {
                 throw new Exception(
@@ -1046,7 +941,6 @@ JOBS:
                 );
             }
 
-            // Extract the text returned by the model.
             string outputText =
                 ExtractOutputText(responseString);
 
@@ -1057,20 +951,15 @@ JOBS:
                 );
             }
 
-            // Remove accidental markdown fences.
             return CleanJsonOutput(outputText);
         }
 
-        /// <summary>
-        /// Extracts the generated text from the Responses API JSON structure.
-        /// </summary>
         private static string ExtractOutputText(
             string responseString)
         {
             using var json =
                 JsonDocument.Parse(responseString);
 
-            // Some responses may include output_text directly.
             if (json.RootElement.TryGetProperty(
                     "output_text",
                     out var directOutputText))
@@ -1079,7 +968,6 @@ JOBS:
                     ?? string.Empty;
             }
 
-            // Otherwise, read the output array.
             if (!json.RootElement.TryGetProperty(
                     "output",
                     out var output))
@@ -1177,9 +1065,6 @@ Rules:
         ? role
         : translatedRole;
 }
-        /// <summary>
-        /// Removes markdown code fences when OpenAI accidentally wraps JSON.
-        /// </summary>
         private static string CleanJsonOutput(
             string outputText)
         {
@@ -1204,13 +1089,6 @@ Rules:
             return cleaned.Trim();
         }
 
-        /// <summary>
-        /// Cleans and shortens a job description.
-        ///
-        /// Both the beginning and end are preserved because:
-        /// - The beginning usually contains the role summary.
-        /// - The end often contains requirements and qualifications.
-        /// </summary>
         private static string PrepareJobDescription(
             string? description,
             int maximumLength)
@@ -1220,11 +1098,9 @@ Rules:
             if (cleaned.Length <= maximumLength)
                 return cleaned;
 
-            // Keep 45% from the beginning.
             int beginningLength =
                 maximumLength * 45 / 100;
 
-            // Keep the remaining 55% from the end.
             int endingLength =
                 maximumLength - beginningLength;
 
@@ -1233,10 +1109,6 @@ Rules:
                 + cleaned[^endingLength..];
         }
 
-        /// <summary>
-        /// Removes unnecessary spaces, line breaks, and tabs.
-        /// This reduces prompt size without changing the content.
-        /// </summary>
         private static string CleanText(
             string? value)
         {

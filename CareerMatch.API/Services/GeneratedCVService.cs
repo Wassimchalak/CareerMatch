@@ -8,45 +8,34 @@ using System.Text.RegularExpressions;
 
 namespace CareerMatch.API.Services
 {
-    // Improves one application CV and returns its PDF in one operation.
     public class GeneratedCVService
     {
-        // Creates SQL Server connections for Dapper.
         private readonly DbConnectionFactory _dbConnectionFactory;
 
-        // Calls OpenAI.
         private readonly AIService _aiService;
 
-        // Provides the application root folder.
         private readonly IWebHostEnvironment _environment;
 
-        // Receives all required dependencies.
         public GeneratedCVService(
             DbConnectionFactory dbConnectionFactory,
             AIService aiService,
             IWebHostEnvironment environment)
         {
-            // Saves the database factory.
             _dbConnectionFactory = dbConnectionFactory;
 
-            // Saves the AI service.
             _aiService = aiService;
 
-            // Saves the hosting environment.
             _environment = environment;
         }
 
-        // Generates, saves, converts, and returns one improved-CV PDF.
         public async Task<GeneratedDocumentDownloadResult?>
             GenerateAndDownloadForApplicationAsync(
                 int authenticatedUserId,
                 int applicationId)
         {
-            // Opens one database connection.
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
-            // Loads the exact application, CV, and job.
             var applicationData =
                 await connection.QueryFirstOrDefaultAsync<
                     ApplicationRefinementData>(
@@ -68,17 +57,14 @@ namespace CareerMatch.API.Services
                     ",
                     new
                     {
-                        // Passes the application id safely.
                         ApplicationId = applicationId,
                         UserId = authenticatedUserId
                     }
                 );
 
-            // Returns null when the application does not exist.
             if (applicationData == null)
                 return null;
 
-            // Prevents generation from unreadable CV text.
             if (string.IsNullOrWhiteSpace(
                 applicationData.OriginalCVText))
             {
@@ -87,7 +73,6 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Loads extracted skills from the exact application CV.
             var cvSkills =
                 (
                     await connection.QueryAsync<CVSkillData>(
@@ -103,17 +88,14 @@ namespace CareerMatch.API.Services
                         ",
                         new
                         {
-                            // Uses the exact application CV.
                             CVId = applicationData.CVId
                         }
                     )
                 ).ToList();
 
-            // Converts the candidate skills into prompt text.
             string cvSkillsText =
                 BuildCVSkillsText(cvSkills);
 
-            // Generates the improved CV.
             string generatedCVText =
                 await _aiService.RefineCVForJobAsync(
                     applicationData.OriginalCVText,
@@ -123,7 +105,6 @@ namespace CareerMatch.API.Services
                     applicationData.JobDescription
                 );
 
-            // Rejects empty AI output.
             if (string.IsNullOrWhiteSpace(
                 generatedCVText))
             {
@@ -132,11 +113,8 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Uses UTC so database timestamps are consistent
-            // across local development and deployment environments.
             DateTime generatedAt = DateTime.UtcNow;
 
-            // Creates the PDF folder.
             string pdfFolder =
                 Path.Combine(
                     _environment.ContentRootPath,
@@ -144,42 +122,32 @@ namespace CareerMatch.API.Services
                     "GeneratedCVs"
                 );
 
-            // Ensures the folder exists.
             Directory.CreateDirectory(pdfFolder);
 
-            // Creates safe filename segments.
             string safeJobTitle =
                 CreateSafeFileName(
                     applicationData.JobTitle
                 );
 
-            // Creates a safe company segment.
             string safeCompanyName =
                 CreateSafeFileName(
                     applicationData.CompanyName
                 );
 
-            // Creates a unique filename for the replacement PDF.
-            // The old PDF is not overwritten immediately because the new
-            // PDF must be generated successfully before the database row
-            // and physical file are replaced.
             string pdfFileName =
                 $"Refined_CV_{safeJobTitle}_{safeCompanyName}_{Guid.NewGuid():N}.pdf";
 
-            // Builds the complete server path.
             string pdfFilePath =
                 Path.Combine(
                     pdfFolder,
                     pdfFileName
                 );
 
-            // Cleans the generated text for PDF rendering.
             List<string> lines =
                 PrepareCVLines(
                     generatedCVText
                 );
 
-            // Creates the new PDF before changing the database.
             CreatePdf(
                 lines,
                 pdfFilePath
@@ -190,9 +158,6 @@ namespace CareerMatch.API.Services
 
             try
             {
-                // Dapper may close a connection after an earlier command
-                // when it originally opened that connection automatically.
-                // A transaction requires the connection to be open.
                 if (connection.State !=
                     System.Data.ConnectionState.Open)
                 {
@@ -204,8 +169,6 @@ namespace CareerMatch.API.Services
 
                 try
                 {
-                    // Locks this application's generated-CV row while the
-                    // insert-or-update decision is being made.
                     existingGeneratedCV =
                         await connection.QueryFirstOrDefaultAsync<
                             ExistingGeneratedCVData>(
@@ -230,7 +193,6 @@ namespace CareerMatch.API.Services
 
                     if (existingGeneratedCV == null)
                     {
-                        // This is the first refined CV for the application.
                         await connection.ExecuteAsync(
                             @"
                             INSERT INTO GeneratedCVs
@@ -272,8 +234,6 @@ namespace CareerMatch.API.Services
                     }
                     else
                     {
-                        // A refined CV already exists for this application.
-                        // Keep the same GeneratedCVId and replace its content.
                         await connection.ExecuteAsync(
                             @"
                             UPDATE GeneratedCVs
@@ -324,8 +284,6 @@ namespace CareerMatch.API.Services
             }
             catch
             {
-                // The new PDF is not referenced by the database when the
-                // database operation fails, so remove the orphaned file.
                 DeleteFileWithoutFailingRequest(
                     pdfFilePath,
                     "NEW GENERATED CV CLEANUP ERROR"
@@ -334,8 +292,6 @@ namespace CareerMatch.API.Services
                 throw;
             }
 
-            // Delete the previous physical PDF only after the replacement
-            // row was successfully committed to the database.
             if (
                 existingGeneratedCV != null &&
                 !string.IsNullOrWhiteSpace(
@@ -357,49 +313,37 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Reads the completed PDF.
             byte[] fileBytes =
                 await File.ReadAllBytesAsync(
                     pdfFilePath
                 );
 
-            // Returns only the downloadable document.
             return new GeneratedDocumentDownloadResult
             {
-                // Returns PDF bytes.
                 FileBytes = fileBytes,
 
-                // Returns the browser filename.
                 FileName = pdfFileName,
 
-                // Returns the PDF content type.
                 ContentType = "application/pdf"
             };
         }
 
-        // Creates the improved-CV PDF.
         private static void CreatePdf(
             List<string> lines,
             string pdfFilePath)
         {
-            // Creates the QuestPDF document.
             Document.Create(document =>
             {
-                // Defines the page layout.
                 document.Page(page =>
                 {
-                    // Uses A4 paper.
                     page.Size(PageSizes.A4);
 
-                    // Adds margins.
                     page.Margin(35);
 
-                    // Sets default typography.
                     page.DefaultTextStyle(style =>
                         style.FontSize(10)
                     );
 
-                    // Adds the header.
                     page.Header()
                         .PaddingBottom(8)
                         .BorderBottom(1)
@@ -407,15 +351,12 @@ namespace CareerMatch.API.Services
                         .SemiBold()
                         .FontSize(16);
 
-                    // Adds every prepared line.
                     page.Content()
                         .PaddingVertical(8)
                         .Column(column =>
                         {
-                            // Adds small spacing between lines.
                             column.Spacing(2);
 
-                            // Renders every line.
                             foreach (string line in lines)
                             {
                                 AddLineToPdf(
@@ -425,7 +366,6 @@ namespace CareerMatch.API.Services
                             }
                         });
 
-                    // Adds page numbering.
                     page.Footer()
                         .AlignCenter()
                         .Text(text =>
@@ -437,23 +377,19 @@ namespace CareerMatch.API.Services
                         });
                 });
             })
-            // Writes the file.
             .GeneratePdf(pdfFilePath);
         }
 
-        // Renders one prepared CV line.
         private static void AddLineToPdf(
             ColumnDescriptor column,
             string line)
         {
-            // Adds spacing for blank lines.
             if (string.IsNullOrWhiteSpace(line))
             {
                 column.Item().Height(3);
                 return;
             }
 
-            // Styles known or uppercase section headings.
             if (IsSectionHeading(line))
             {
                 column.Item()
@@ -466,21 +402,17 @@ namespace CareerMatch.API.Services
                 return;
             }
 
-            // Styles bullet lines.
             if (HasBulletPrefix(line))
             {
-                // Removes the original bullet marker.
                 string bulletText =
                     RemoveBulletPrefix(line);
 
-                // Skips an empty bullet.
                 if (string.IsNullOrWhiteSpace(
                     bulletText))
                 {
                     return;
                 }
 
-                // Draws a bullet and its text.
                 column.Item()
                     .Row(row =>
                     {
@@ -495,38 +427,30 @@ namespace CareerMatch.API.Services
                 return;
             }
 
-            // Draws a normal paragraph line.
             column.Item()
                 .Text(line)
                 .LineHeight(1.2f);
         }
 
-        // Cleans raw AI text into PDF-ready lines.
         private static List<string> PrepareCVLines(
             string generatedCVText)
         {
-            // Normalizes line endings.
             string[] rawLines =
                 generatedCVText
                     .Replace("\r\n", "\n")
                     .Replace("\r", "\n")
                     .Split('\n');
 
-            // Stores cleaned lines.
             var preparedLines =
                 new List<string>();
 
-            // Prevents repeated empty lines.
             bool previousLineWasEmpty = false;
 
-            // Processes each raw line.
             foreach (string rawLine in rawLines)
             {
-                // Cleans markdown and extra spaces.
                 string line =
                     CleanCVLine(rawLine);
 
-                // Handles blank lines.
                 if (string.IsNullOrWhiteSpace(line))
                 {
                     if (!previousLineWasEmpty &&
@@ -541,20 +465,16 @@ namespace CareerMatch.API.Services
                     continue;
                 }
 
-                // Skips bullet markers without content.
                 if (IsEmptyBulletLine(line))
                 {
                     continue;
                 }
 
-                // Records that this line contains text.
                 previousLineWasEmpty = false;
 
-                // Adds the cleaned line.
                 preparedLines.Add(line);
             }
 
-            // Removes trailing empty lines.
             while (preparedLines.Count > 0 &&
                    string.IsNullOrWhiteSpace(
                        preparedLines[^1]))
@@ -564,23 +484,18 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Returns the final lines.
             return preparedLines;
         }
 
-        // Removes simple markdown artifacts.
         private static string CleanCVLine(
             string value)
         {
-            // Returns empty for whitespace-only input.
             if (string.IsNullOrWhiteSpace(value))
                 return string.Empty;
 
-            // Trims the line.
             string cleanedValue =
                 value.Trim();
 
-            // Removes markdown heading symbols.
             cleanedValue =
                 Regex.Replace(
                     cleanedValue,
@@ -588,14 +503,12 @@ namespace CareerMatch.API.Services
                     ""
                 );
 
-            // Removes markdown emphasis markers.
             cleanedValue =
                 cleanedValue
                     .Replace("***", "")
                     .Replace("**", "")
                     .Replace("__", "");
 
-            // Removes markdown horizontal rules.
             if (Regex.IsMatch(
                 cleanedValue,
                 @"^[-_*]{3,}$"))
@@ -603,7 +516,6 @@ namespace CareerMatch.API.Services
                 return string.Empty;
             }
 
-            // Collapses repeated spaces and tabs.
             cleanedValue =
                 Regex.Replace(
                     cleanedValue,
@@ -611,26 +523,21 @@ namespace CareerMatch.API.Services
                     " "
                 );
 
-            // Returns the final line.
             return cleanedValue.Trim();
         }
 
-        // Detects likely CV section headings.
         private static bool IsSectionHeading(
             string line)
         {
-            // Rejects empty input.
             if (string.IsNullOrWhiteSpace(line))
                 return false;
 
-            // Removes bullets and trailing punctuation.
             string value =
                 RemoveBulletPrefix(line)
                     .Trim()
                     .TrimEnd(':')
                     .Trim();
 
-            // Lists common CV headings.
             string[] knownHeadings =
             {
                 "PROFESSIONAL SUMMARY",
@@ -650,7 +557,6 @@ namespace CareerMatch.API.Services
                 "REFERENCES"
             };
 
-            // Returns true for a known heading.
             if (knownHeadings.Contains(
                 value,
                 StringComparer.OrdinalIgnoreCase))
@@ -658,26 +564,21 @@ namespace CareerMatch.API.Services
                 return true;
             }
 
-            // Uses a short-all-uppercase fallback rule.
             return value.Length <= 45 &&
                    value.Any(char.IsLetter) &&
                    value ==
                        value.ToUpperInvariant();
         }
 
-        // Detects common bullet prefixes.
         private static bool HasBulletPrefix(
             string line)
         {
-            // Rejects empty input.
             if (string.IsNullOrWhiteSpace(line))
                 return false;
 
-            // Ignores leading spaces.
             string value =
                 line.TrimStart();
 
-            // Checks supported bullet forms.
             return value.StartsWith("•") ||
                    value.StartsWith("▪") ||
                    value.StartsWith("◦") ||
@@ -687,15 +588,12 @@ namespace CareerMatch.API.Services
                    value.StartsWith("— ");
         }
 
-        // Detects bullet characters with no text.
         private static bool IsEmptyBulletLine(
             string line)
         {
-            // Trims the line.
             string value =
                 line.Trim();
 
-            // Checks empty bullet forms.
             return value == "•" ||
                    value == "▪" ||
                    value == "◦" ||
@@ -705,19 +603,15 @@ namespace CareerMatch.API.Services
                    value == "—";
         }
 
-        // Removes one leading bullet marker.
         private static string RemoveBulletPrefix(
             string line)
         {
-            // Returns empty for empty input.
             if (string.IsNullOrWhiteSpace(line))
                 return string.Empty;
 
-            // Trims leading spaces.
             string value =
                 line.TrimStart();
 
-            // Removes one supported bullet marker.
             if (value.StartsWith("•") ||
                 value.StartsWith("▪") ||
                 value.StartsWith("◦") ||
@@ -730,19 +624,15 @@ namespace CareerMatch.API.Services
                     value.Substring(1);
             }
 
-            // Returns the remaining text.
             return value.Trim();
         }
 
-        // Creates a safe filename segment.
         private static string CreateSafeFileName(
             string value)
         {
-            // Provides a fallback.
             if (string.IsNullOrWhiteSpace(value))
                 return "Job";
 
-            // Replaces unsupported characters.
             string safeValue =
                 Regex.Replace(
                     value.Trim(),
@@ -750,7 +640,6 @@ namespace CareerMatch.API.Services
                     "_"
                 );
 
-            // Collapses repeated underscores.
             safeValue =
                 Regex.Replace(
                     safeValue,
@@ -758,36 +647,30 @@ namespace CareerMatch.API.Services
                     "_"
                 );
 
-            // Limits segment length.
             if (safeValue.Length > 50)
             {
                 safeValue =
                     safeValue.Substring(0, 50);
             }
 
-            // Removes separators from both ends.
             safeValue =
                 safeValue.Trim('_', '-');
 
-            // Guarantees a non-empty result.
             return string.IsNullOrWhiteSpace(
                 safeValue)
                 ? "Job"
                 : safeValue;
         }
 
-        // Converts CV skills into prompt text.
         private static string BuildCVSkillsText(
             List<CVSkillData> skills)
         {
-            // Provides a clear fallback.
             if (skills.Count == 0)
             {
                 return
                     "No extracted CV skills were found.";
             }
 
-            // Creates one line per skill.
             return string.Join(
                 Environment.NewLine,
                 skills.Select(skill =>
@@ -797,8 +680,6 @@ namespace CareerMatch.API.Services
             );
         }
 
-        // Deletes a generated file without turning a successful
-        // generation into a failed API request when cleanup alone fails.
         private static void DeleteFileWithoutFailingRequest(
             string? filePath,
             string logPrefix)
@@ -821,7 +702,6 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Holds the current generated-CV row for one application.
         private class ExistingGeneratedCVData
         {
             public int GeneratedCVId { get; set; }
@@ -839,40 +719,30 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Holds application, CV, and job query data.
         private class ApplicationRefinementData
         {
-            // Stores the application id.
             public int ApplicationId { get; set; }
 
-            // Stores the exact CV id.
             public int CVId { get; set; }
 
-            // Stores extracted original CV text.
             public string OriginalCVText { get; set; }
                 = string.Empty;
 
-            // Stores the target job title.
             public string JobTitle { get; set; }
                 = string.Empty;
 
-            // Stores the company name.
             public string CompanyName { get; set; }
                 = string.Empty;
 
-            // Stores the full job description.
             public string JobDescription { get; set; }
                 = string.Empty;
         }
 
-        // Holds one extracted CV skill row.
         private class CVSkillData
         {
-            // Stores the skill name.
             public string SkillName { get; set; }
                 = string.Empty;
 
-            // Stores known or unknown years.
             public decimal? YearsOfExperience { get; set; }
         }
     }

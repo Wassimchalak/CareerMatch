@@ -9,53 +9,40 @@ using System.Text.RegularExpressions;
 
 namespace CareerMatch.API.Services
 {
-    // Generates interview preparation and returns its PDF in one operation.
     public class GeneratedInterviewQuestionsService
     {
-        // Creates SQL Server connections for Dapper.
         private readonly DbConnectionFactory _dbConnectionFactory;
 
-        // Calls OpenAI.
         private readonly AIService _aiService;
 
-        // Provides the application root folder.
         private readonly IWebHostEnvironment _environment;
 
-        // Serializes the structured question result.
         private static readonly JsonSerializerOptions JsonOptions =
             new JsonSerializerOptions
             {
-                // Allows case-insensitive property matching.
                 PropertyNameCaseInsensitive = true
             };
 
-        // Receives all required dependencies.
         public GeneratedInterviewQuestionsService(
             DbConnectionFactory dbConnectionFactory,
             AIService aiService,
             IWebHostEnvironment environment)
         {
-            // Saves the database factory.
             _dbConnectionFactory = dbConnectionFactory;
 
-            // Saves the AI service.
             _aiService = aiService;
 
-            // Saves the hosting environment.
             _environment = environment;
         }
 
-        // Generates, saves, converts, and returns one interview-preparation PDF.
         public async Task<GeneratedDocumentDownloadResult?>
             GenerateAndDownloadForApplicationAsync(
                 int authenticatedUserId,
                 int applicationId)
         {
-            // Opens one database connection.
             using var connection =
                 _dbConnectionFactory.CreateConnection();
 
-            // Loads the exact application and its related job.
             var applicationData =
                 await connection.QueryFirstOrDefaultAsync<
                     InterviewApplicationData>(
@@ -73,20 +60,15 @@ namespace CareerMatch.API.Services
                     ",
                     new
                     {
-                        // Passes the application id safely.
                         ApplicationId = applicationId,
 
-                        // Ensures the application belongs to the authenticated user.
                         UserId = authenticatedUserId
                     }
                 );
 
-            // Returns null when the application does not exist
-            // or does not belong to the authenticated user.
             if (applicationData == null)
                 return null;
 
-            // Rejects an empty job description.
             if (string.IsNullOrWhiteSpace(
                 applicationData.JobDescription))
             {
@@ -95,8 +77,6 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Generates exactly five theoretical and five practical questions
-            // using only the job title, company name, and description.
             AIInterviewQuestionsResult questions =
                 await _aiService
                     .GenerateInterviewQuestionsAsync(
@@ -105,25 +85,20 @@ namespace CareerMatch.API.Services
                         applicationData.JobDescription
                     );
 
-            // Confirms that all required content exists.
             ValidateAIResult(questions);
 
-            // Applies stable numbering from 1 to 10.
             NormalizeQuestionNumbers(
                 questions
             );
 
-            // Converts the complete result into JSON for SQL Server.
             string generatedQuestionsJson =
                 JsonSerializer.Serialize(
                     questions,
                     JsonOptions
                 );
 
-            // Uses one generation timestamp.
             DateTime generatedAt = DateTime.Now;
 
-            // Creates the PDF folder.
             string pdfFolder =
                 Path.Combine(
                     _environment.ContentRootPath,
@@ -131,35 +106,29 @@ namespace CareerMatch.API.Services
                     "GeneratedInterviewQuestions"
                 );
 
-            // Ensures that the folder exists.
             Directory.CreateDirectory(
                 pdfFolder
             );
 
-            // Creates a safe job-title filename segment.
             string safeJobTitle =
                 CreateSafeFileName(
                     applicationData.JobTitle
                 );
 
-            // Creates a safe company-name filename segment.
             string safeCompanyName =
                 CreateSafeFileName(
                     applicationData.CompanyName
                 );
 
-            // Creates a unique PDF filename.
             string pdfFileName =
                 $"Interview_Preparation_{safeJobTitle}_{safeCompanyName}_{Guid.NewGuid():N}.pdf";
 
-            // Builds the full PDF path.
             string pdfFilePath =
                 Path.Combine(
                     pdfFolder,
                     pdfFileName
                 );
 
-            // Creates the QuestPDF document.
             CreatePdf(
                 questions,
                 applicationData.JobTitle,
@@ -167,7 +136,6 @@ namespace CareerMatch.API.Services
                 pdfFilePath
             );
 
-            // Checks whether this application already has a generated question set.
             int? existingId =
                 await connection.QueryFirstOrDefaultAsync<int?>(
                     @"
@@ -179,12 +147,10 @@ namespace CareerMatch.API.Services
                     ",
                     new
                     {
-                        // Searches by application.
                         ApplicationId = applicationId
                     }
                 );
 
-            // Updates the current row when one exists.
             if (existingId.HasValue)
             {
                 await connection.ExecuteAsync(
@@ -198,15 +164,12 @@ namespace CareerMatch.API.Services
                     ",
                     new
                     {
-                        // Selects the existing row.
                         GeneratedInterviewQuestionId =
                             existingId.Value,
 
-                        // Stores the structured JSON.
                         GeneratedQuestions =
                             generatedQuestionsJson,
 
-                        // Stores the generation time.
                         GeneratedAt =
                             generatedAt
                     }
@@ -214,7 +177,6 @@ namespace CareerMatch.API.Services
             }
             else
             {
-                // Inserts the first question set for this application.
                 await connection.ExecuteAsync(
                     @"
                     INSERT INTO GeneratedInterviewQuestions
@@ -232,61 +194,47 @@ namespace CareerMatch.API.Services
                     ",
                     new
                     {
-                        // Links the set to the application.
                         ApplicationId =
                             applicationId,
 
-                        // Stores the structured JSON.
                         GeneratedQuestions =
                             generatedQuestionsJson,
 
-                        // Stores the generation time.
                         GeneratedAt =
                             generatedAt
                     }
                 );
             }
 
-            // Reads the completed PDF.
             byte[] fileBytes =
                 await File.ReadAllBytesAsync(
                     pdfFilePath
                 );
 
-            // Returns only the downloadable document.
             return new GeneratedDocumentDownloadResult
             {
-                // Returns PDF bytes.
                 FileBytes = fileBytes,
 
-                // Returns the browser filename.
                 FileName = pdfFileName,
 
-                // Returns the PDF content type.
                 ContentType = "application/pdf"
             };
         }
 
-        // Creates the interview-preparation PDF.
         private static void CreatePdf(
             AIInterviewQuestionsResult questions,
             string jobTitle,
             string companyName,
             string pdfFilePath)
         {
-            // Creates the QuestPDF document.
             Document.Create(document =>
             {
-                // Defines the page layout.
                 document.Page(page =>
                 {
-                    // Uses A4 paper.
                     page.Size(PageSizes.A4);
 
-                    // Adds margins.
                     page.Margin(40);
 
-                    // Uses the bundled Arabic-compatible font.
                     page.DefaultTextStyle(style =>
                         style
                             .FontFamily("Noto Sans Arabic")
@@ -294,13 +242,11 @@ namespace CareerMatch.API.Services
                             .LineHeight(1.3f)
                     );
 
-                    // Adds the repeated header.
                     page.Header()
                         .PaddingBottom(10)
                         .BorderBottom(1)
                         .Column(header =>
                         {
-                            // Adds the document title.
                             header.Item()
                                 .Text(
                                     "Interview Preparation"
@@ -308,7 +254,6 @@ namespace CareerMatch.API.Services
                                 .SemiBold()
                                 .FontSize(16);
 
-                            // Adds the job context.
                             header.Item()
                                 .Text(
                                     $"{jobTitle} at {companyName}"
@@ -316,15 +261,12 @@ namespace CareerMatch.API.Services
                                 .FontSize(10);
                         });
 
-                    // Adds the document content.
                     page.Content()
                         .PaddingVertical(15)
                         .Column(column =>
                         {
-                            // Adds spacing between blocks.
                             column.Spacing(10);
 
-                            // Adds the practice title.
                             column.Item()
                                 .Text(
                                     "Questions — Practice First"
@@ -332,21 +274,18 @@ namespace CareerMatch.API.Services
                                 .Bold()
                                 .FontSize(14);
 
-                            // Adds theoretical questions only.
                             AddQuestionSection(
                                 column,
                                 "Theoretical Questions",
                                 questions.TheoreticalQuestions
                             );
 
-                            // Adds practical questions only.
                             AddQuestionSection(
                                 column,
                                 "Practical Questions",
                                 questions.PracticalQuestions
                             );
 
-                            // Forces all answers to begin on a different page.
                             column.Item()
                                 .PageBreak();
 
@@ -357,14 +296,12 @@ namespace CareerMatch.API.Services
 
                         
 
-                            // Adds theoretical answers.
                             AddAnswerSection(
                                 column,
                                 "Theoretical Questions",
                                 questions.TheoreticalQuestions
                             );
 
-                            // Adds practical solutions.
                             AddAnswerSection(
                                 column,
                                 "Practical Questions",
@@ -372,7 +309,6 @@ namespace CareerMatch.API.Services
                             );
                         });
 
-                    // Adds page numbering.
                     page.Footer()
                         .AlignCenter()
                         .Text(text =>
@@ -384,25 +320,21 @@ namespace CareerMatch.API.Services
                         });
                 });
             })
-            // Writes the PDF to disk.
             .GeneratePdf(pdfFilePath);
         }
 
-        // Adds one question-only section.
         private static void AddQuestionSection(
             ColumnDescriptor column,
             string heading,
             IReadOnlyCollection<
                 InterviewQuestionItem> questions)
         {
-            // Adds the section heading.
             column.Item()
                 .PaddingTop(5)
                 .Text(heading)
                 .SemiBold()
                 .FontSize(12);
 
-            // Adds every question without its answer.
             foreach (InterviewQuestionItem item
                 in questions)
             {
@@ -413,21 +345,18 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Adds one interview guidance section.
         private static void AddAnswerSection(
             ColumnDescriptor column,
             string heading,
             IReadOnlyCollection<
                 InterviewQuestionItem> questions)
         {
-            // Adds the section heading.
             column.Item()
                 .PaddingTop(5)
                 .Text(heading)
                 .SemiBold()
                 .FontSize(12);
 
-            // Adds interview guidance for each question.
             foreach (InterviewQuestionItem item
                 in questions)
             {
@@ -435,7 +364,6 @@ namespace CareerMatch.API.Services
                     .PaddingBottom(8)
                     .Column(guidance =>
                     {
-                        // Repeats the question.
                         guidance.Item()
                             .Text(
                                 $"{item.QuestionNumber}. {item.Question}"
@@ -444,7 +372,6 @@ namespace CareerMatch.API.Services
 
                        
 
-                        // Explains how the applicant should answer.
                         guidance.Item()
                             .PaddingTop(3)
                             .Text(
@@ -454,11 +381,9 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Confirms the exact required output.
         private static void ValidateAIResult(
             AIInterviewQuestionsResult result)
         {
-            // Requires exactly five theoretical questions.
             if (result.TheoreticalQuestions.Count != 5)
             {
                 throw new Exception(
@@ -466,7 +391,6 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Requires exactly five practical questions.
             if (result.PracticalQuestions.Count != 5)
             {
                 throw new Exception(
@@ -474,7 +398,6 @@ namespace CareerMatch.API.Services
                 );
             }
 
-            // Combines both groups.
             IEnumerable<InterviewQuestionItem>
                 allQuestions =
                     result.TheoreticalQuestions
@@ -482,7 +405,6 @@ namespace CareerMatch.API.Services
                             result.PracticalQuestions
                         );
 
-            // Rejects incomplete question objects.
             if (allQuestions.Any(item =>
                     string.IsNullOrWhiteSpace(
                         item.Question) ||
@@ -496,11 +418,9 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Applies numbering from 1 through 10.
         private static void NormalizeQuestionNumbers(
             AIInterviewQuestionsResult result)
         {
-            // Numbers theoretical questions 1 to 5.
             for (int index = 0;
                  index <
                     result.TheoreticalQuestions.Count;
@@ -511,7 +431,6 @@ namespace CareerMatch.API.Services
                         index + 1;
             }
 
-            // Numbers practical questions 6 to 10.
             for (int index = 0;
                  index <
                     result.PracticalQuestions.Count;
@@ -523,15 +442,12 @@ namespace CareerMatch.API.Services
             }
         }
 
-        // Creates a safe filename segment.
         private static string CreateSafeFileName(
             string value)
         {
-            // Provides a fallback.
             if (string.IsNullOrWhiteSpace(value))
                 return "Interview";
 
-            // Replaces unsupported characters.
             string safeValue =
                 Regex.Replace(
                     value.Trim(),
@@ -539,7 +455,6 @@ namespace CareerMatch.API.Services
                     "_"
                 );
 
-            // Collapses repeated underscores.
             safeValue =
                 Regex.Replace(
                     safeValue,
@@ -547,39 +462,31 @@ namespace CareerMatch.API.Services
                     "_"
                 );
 
-            // Limits segment length.
             if (safeValue.Length > 50)
             {
                 safeValue =
                     safeValue.Substring(0, 50);
             }
 
-            // Removes separators from both ends.
             safeValue =
                 safeValue.Trim('_', '-');
 
-            // Guarantees a non-empty result.
             return string.IsNullOrWhiteSpace(
                 safeValue)
                 ? "Interview"
                 : safeValue;
         }
 
-        // Holds application and job query data.
         private class InterviewApplicationData
         {
-            // Stores the application id.
             public int ApplicationId { get; set; }
 
-            // Stores the job title.
             public string JobTitle { get; set; }
                 = string.Empty;
 
-            // Stores the company name.
             public string CompanyName { get; set; }
                 = string.Empty;
 
-            // Stores the full job description.
             public string JobDescription { get; set; }
                 = string.Empty;
         }

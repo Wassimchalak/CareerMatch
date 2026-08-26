@@ -5,8 +5,6 @@ namespace CareerMatch.API.Models
         public int ApplicationId { get; set; }
         public int UserId { get; set; }
 
-        // Nullable because users may apply externally without first
-        // uploading a CV to CareerMatch.
         public int? CVId { get; set; }
 
         public int JobId { get; set; }

@@ -26,8 +26,7 @@ namespace CareerMatch.API.Services
                 _dbConnectionFactory
                     .CreateConnection();
 
-            // The latest CV is optional. A user may continue to the external
-            // application page and upload a CV there instead.
+           
             var cv =
                 await connection
                     .QueryFirstOrDefaultAsync<CV>(
@@ -89,8 +88,6 @@ namespace CareerMatch.API.Services
 
             if (existingApplication != null)
             {
-                // If the application was created without a CV but the user
-                // uploaded one later, attach the latest CV now.
                 if (existingApplication.CVId == null &&
                     cv != null)
                 {
