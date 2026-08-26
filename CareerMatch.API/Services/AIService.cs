@@ -803,7 +803,7 @@ CANDIDATE CV:
 
 return await SendPromptToOpenAIAsync(
     prompt
-);
+);}
 
 
        public async Task<AIInterviewQuestionsResult>
