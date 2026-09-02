@@ -6,7 +6,7 @@ CareerMatch is a full-stack web application designed to help job seekers discove
 
 The platform was developed during my full-time Full-Stack Development internship at **Computer Technology & Services (CTServ)**.
 
-🌐 **Live Application:** https://career-match-app.com
+🌐 **Live Application:** https://career-match-iota.vercel.app/
 
 ---
 
