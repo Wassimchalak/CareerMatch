@@ -434,9 +434,8 @@ namespace CareerMatch.API.Services
             // The Apify synchronous actor can legitimately take longer than
             // HttpClient's default 100-second timeout. Use a per-request timeout
             // while preserving the application's shared HttpClient configuration.
-            using var timeoutCts = new CancellationTokenSource(
-                TimeSpan.FromMinutes(3)
-            );
+           using var timeoutCts =
+    new CancellationTokenSource(TimeSpan.FromSeconds(25));
 
             HttpResponseMessage response;
             try
@@ -450,7 +449,7 @@ namespace CareerMatch.API.Services
             catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
             {
                 throw new TimeoutException(
-                    "Bebity job search did not complete within 3 minutes."
+                    "Bebity job search did not complete within 25 seconds."
                 );
             }
 
