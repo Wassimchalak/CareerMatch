@@ -47,22 +47,12 @@ namespace CareerMatch.API.Services
                 return new List<JobSearchResponse>();
             }
 
-            // Remove duplicates conservatively.
-            // Different companies are never merged. Similar titles alone are
-            // never enough. The content-based rule applies only when company,
-            // title, description, location, employment type and work mode all
-            // match after normalization.
+            // Deduplicate by the underlying vacancy identity.
+            // Prefer a stable external employer job identity from applyUrl.
+            // If none can be extracted, fall back to the LinkedIn posting ID.
+            // We intentionally do NOT compare title/description similarity.
             jobs = jobs
-                .GroupBy(job => job.ExternalJobId, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .GroupBy(job => string.Join("|",
-                    NormalizeDuplicateField(job.CompanyName),
-                    NormalizeDuplicateField(job.Title),
-                    NormalizeDuplicateField(job.Description),
-                    NormalizeDuplicateField(job.Country),
-                    NormalizeDuplicateField(job.City),
-                    NormalizeDuplicateField(job.EmploymentType),
-                    NormalizeDuplicateField(job.WorkMode)))
+                .GroupBy(job => GetVacancyIdentity(job))
                 .Select(group => group.First())
                 .ToList();
 
@@ -579,22 +569,40 @@ namespace CareerMatch.API.Services
             return value.ToString();
         }
 
-        private static string NormalizeDuplicateField(string? value)
+        private static string GetVacancyIdentity(Job job)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            // CareerMatch JobUrl contains Bebity applyUrl when one is available.
+            // For external ATS links, strip query/fragment because tracking
+            // parameters can differ for the same employer vacancy.
+            if (!string.IsNullOrWhiteSpace(job.JobUrl) &&
+                Uri.TryCreate(job.JobUrl, UriKind.Absolute, out Uri? uri) &&
+                !uri.Host.Contains("linkedin.com", StringComparison.OrdinalIgnoreCase))
             {
-                return string.Empty;
+                string normalizedPath = uri.AbsolutePath.TrimEnd('/').ToLowerInvariant();
+
+                // Common ATS URLs (including iCIMS) contain a stable numeric job ID:
+                // /jobs/2324/... -> host + /jobs/2324
+                Match jobsMatch = Regex.Match(
+                    normalizedPath,
+                    @"/jobs?/(\d+)(?:/|$)",
+                    RegexOptions.IgnoreCase
+                );
+
+                if (jobsMatch.Success)
+                {
+                    return $"external:{uri.Host.ToLowerInvariant()}:/jobs/{jobsMatch.Groups[1].Value}";
+                }
+
+                // Generic external fallback: same host + same path, ignoring
+                // query-string tracking such as mode=apply, iis=LinkedIn, etc.
+                if (!string.IsNullOrWhiteSpace(normalizedPath) && normalizedPath != "/")
+                {
+                    return $"external:{uri.Host.ToLowerInvariant()}:{normalizedPath}";
+                }
             }
 
-            return string.Join(
-                " ",
-                value.Trim()
-                    .ToLowerInvariant()
-                    .Split(
-                        (char[]?)null,
-                        StringSplitOptions.RemoveEmptyEntries
-                    )
-            );
+            // LinkedIn posting identity remains the fallback.
+            return $"linkedin:{job.ExternalJobId.ToLowerInvariant()}";
         }
 
         private static string CreateDescriptionHash(string? description)
