@@ -47,9 +47,14 @@ namespace CareerMatch.API.Services
                 return new List<JobSearchResponse>();
             }
 
-            // Intentionally no title/company/location duplicate-removal pass.
-            // Distinct LinkedIn postings are kept distinct. ExternalJobId is used
-            // only as the stable identity of the exact LinkedIn posting in SQL.
+            // Remove only exact duplicate LinkedIn postings returned in the
+            // same Bebity response. Similar titles/companies are NOT treated
+            // as duplicates. ExternalJobId is the stable LinkedIn identity.
+            jobs = jobs
+                .GroupBy(job => job.ExternalJobId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+
             foreach (Job job in jobs)
             {
                 await SaveOrUpdateJobAsync(job);

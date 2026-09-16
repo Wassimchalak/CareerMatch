@@ -2802,18 +2802,6 @@ groupHeading: (base) => ({
                                                             .filter(Boolean)
                                                             .join(", ")}
                                                     </p>
-                                                    <span
-                                                        style={{
-                                                            color:
-                                                                "var(--dashboard-muted)",
-                                                            fontSize:
-                                                                "13px",
-                                                        }}
-                                                    >
-                                                        {job.city
-                                                            ? `${job.city}, ${job.country}`
-                                                            : job.country}
-                                                    </span>
                                                 </div>
 
                                                 <div
