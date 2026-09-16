@@ -23,7 +23,9 @@ string[] allowedOrigins =
         .Concat(
         [
             "http://localhost:5173",
-            "https://career-match-iota.vercel.app"
+            "https://career-match-iota.vercel.app",
+            "https://career-match-app.com",
+            "https://www.career-match-app.com"
         ])
         .Where(origin => !string.IsNullOrWhiteSpace(origin))
         .Distinct(StringComparer.OrdinalIgnoreCase)
