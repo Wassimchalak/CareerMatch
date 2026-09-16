@@ -31,7 +31,7 @@ namespace CareerMatch.API.Services
         {
             _httpClient = httpClient;
             // Disable HttpClient's default 100-second timeout. SearchBebityAsync
-            // applies its own explicit 3-minute timeout per Bebity request.
+            // applies its own explicit 25-second timeout per Bebity request.
             _httpClient.Timeout = Timeout.InfiniteTimeSpan;
             _configuration = configuration;
             _dbConnectionFactory = dbConnectionFactory;
@@ -434,8 +434,8 @@ namespace CareerMatch.API.Services
             // The Apify synchronous actor can legitimately take longer than
             // HttpClient's default 100-second timeout. Use a per-request timeout
             // while preserving the application's shared HttpClient configuration.
-           using var timeoutCts =
-    new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            using var timeoutCts =
+                new CancellationTokenSource(TimeSpan.FromSeconds(25));
 
             HttpResponseMessage response;
             try
@@ -482,17 +482,12 @@ namespace CareerMatch.API.Services
                     string description = GetString(item, "description");
                     string linkedInJobUrl = GetString(item, "jobUrl").Trim();
                     string applyUrl = GetString(item, "applyUrl").Trim();
-                    string contractType = NormalizeEmploymentType(
-                        GetString(item, "contractType")
-                    );
-                    string workType = NormalizeWorkMode(
-                        GetString(item, "workType")
-                    );
-
+                    // Bebity already filtered this actor run using CareerMatch's
+                    // selected employment type and work mode. Bebity can leave its
+                    // returned contractType/workType display fields empty, so do not
+                    // use those response fields to discard otherwise valid jobs.
                     if (string.IsNullOrWhiteSpace(title) ||
-                        string.IsNullOrWhiteSpace(linkedInJobUrl) ||
-                        string.IsNullOrWhiteSpace(contractType) ||
-                        string.IsNullOrWhiteSpace(workType))
+                        string.IsNullOrWhiteSpace(linkedInJobUrl))
                     {
                         continue;
                     }
@@ -527,8 +522,8 @@ namespace CareerMatch.API.Services
                             ClassificationHash = null,
                             ClassifiedAt = null,
                             JobUrl = destinationUrl,
-                            EmploymentType = contractType,
-                            WorkMode = workType,
+                            EmploymentType = request.EmploymentType.Trim(),
+                            WorkMode = request.WorkType.Trim(),
                             PostedDate = GetBebityPostedDate(item),
                             CreatedAt = DateTime.UtcNow,
                             PrimaryRole = request.Role.Trim()
@@ -673,34 +668,6 @@ namespace CareerMatch.API.Services
                 _ => throw new ArgumentException(
                     $"Unsupported work mode: {workType}"
                 )
-            };
-        }
-
-        private static string NormalizeEmploymentType(string? value)
-        {
-            return value?.Trim().ToLowerInvariant() switch
-            {
-                "full-time" => "Full-time",
-                "full time" => "Full-time",
-                "part-time" => "Part-time",
-                "part time" => "Part-time",
-                "contract" => "Contract",
-                "internship" => "Internship",
-                "intern" => "Internship",
-                _ => string.Empty
-            };
-        }
-
-        private static string NormalizeWorkMode(string? value)
-        {
-            return value?.Trim().ToLowerInvariant() switch
-            {
-                "on-site" => "On-site",
-                "onsite" => "On-site",
-                "on site" => "On-site",
-                "remote" => "Remote",
-                "hybrid" => "Hybrid",
-                _ => string.Empty
             };
         }
 

@@ -19,17 +19,42 @@ namespace CareerMatch.API.Controllers
             _jobSearchService = jobSearchService;
         }
 
-        [HttpPost("search")]
-        public async Task<ActionResult<List<JobSearchResponse>>>
-            SearchJobs(
-                [FromBody] JobSearchRequest request)
-        {
-            var jobs =
-                await _jobSearchService
-                    .SearchJobsAsync(request);
+      [HttpPost("search")]
+public async Task<ActionResult<List<JobSearchResponse>>>
+    SearchJobs(
+        [FromBody] JobSearchRequest request)
+{
+    try
+    {
+        var jobs =
+            await _jobSearchService
+                .SearchJobsAsync(request);
 
-            return Ok(jobs);
-        }
+        return Ok(jobs);
+    }
+    catch (TimeoutException)
+    {
+        return StatusCode(
+            StatusCodes.Status503ServiceUnavailable,
+            new
+            {
+                message =
+                    "The job search provider is temporarily unavailable. Please try again."
+            }
+        );
+    }
+    catch (HttpRequestException)
+    {
+        return StatusCode(
+            StatusCodes.Status503ServiceUnavailable,
+            new
+            {
+                message =
+                    "The job search provider is temporarily unavailable. Please try again."
+            }
+        );
+    }
+}
 
         [HttpPost("calculate-matches")]
         public async Task<ActionResult<List<JobSearchResponse>>>
