@@ -47,11 +47,22 @@ namespace CareerMatch.API.Services
                 return new List<JobSearchResponse>();
             }
 
-            // Remove only exact duplicate LinkedIn postings returned in the
-            // same Bebity response. Similar titles/companies are NOT treated
-            // as duplicates. ExternalJobId is the stable LinkedIn identity.
+            // Remove duplicates conservatively.
+            // Different companies are never merged. Similar titles alone are
+            // never enough. The content-based rule applies only when company,
+            // title, description, location, employment type and work mode all
+            // match after normalization.
             jobs = jobs
                 .GroupBy(job => job.ExternalJobId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .GroupBy(job => string.Join("|",
+                    NormalizeDuplicateField(job.CompanyName),
+                    NormalizeDuplicateField(job.Title),
+                    NormalizeDuplicateField(job.Description),
+                    NormalizeDuplicateField(job.Country),
+                    NormalizeDuplicateField(job.City),
+                    NormalizeDuplicateField(job.EmploymentType),
+                    NormalizeDuplicateField(job.WorkMode)))
                 .Select(group => group.First())
                 .ToList();
 
@@ -566,6 +577,24 @@ namespace CareerMatch.API.Services
             }
 
             return value.ToString();
+        }
+
+        private static string NormalizeDuplicateField(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return string.Join(
+                " ",
+                value.Trim()
+                    .ToLowerInvariant()
+                    .Split(
+                        (char[]?)null,
+                        StringSplitOptions.RemoveEmptyEntries
+                    )
+            );
         }
 
         private static string CreateDescriptionHash(string? description)
