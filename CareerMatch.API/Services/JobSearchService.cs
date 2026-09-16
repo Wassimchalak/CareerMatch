@@ -30,6 +30,9 @@ namespace CareerMatch.API.Services
             MatchingService matchingService)
         {
             _httpClient = httpClient;
+            // Disable HttpClient's default 100-second timeout. SearchBebityAsync
+            // applies its own explicit 3-minute timeout per Bebity request.
+            _httpClient.Timeout = Timeout.InfiniteTimeSpan;
             _configuration = configuration;
             _dbConnectionFactory = dbConnectionFactory;
             _matchingService = matchingService;
@@ -53,9 +56,8 @@ namespace CareerMatch.API.Services
 
             if (jobs.Count == 0)
             {
-                // Cache empty searches too so repeated identical searches do not
-                // keep calling Bebity during the same 24-hour period.
-                await SaveSearchCacheAsync(cacheKey, new List<int>());
+                // Do not cache empty provider responses. A temporary Bebity issue
+                // must not suppress this search for the next 24 hours.
                 return new List<JobSearchResponse>();
             }
 
@@ -168,7 +170,9 @@ namespace CareerMatch.API.Services
 
             if (jobIds.Count == 0)
             {
-                return new List<Job>();
+                // Empty results are not cached. Treat any legacy empty cache row
+                // as a miss so CareerMatch retries Bebity.
+                return null;
             }
 
             List<Job> cachedJobs =
@@ -427,88 +431,111 @@ namespace CareerMatch.API.Services
                 "application/json"
             );
 
-            using HttpResponseMessage response =
-                await _httpClient.SendAsync(httpRequest);
+            // The Apify synchronous actor can legitimately take longer than
+            // HttpClient's default 100-second timeout. Use a per-request timeout
+            // while preserving the application's shared HttpClient configuration.
+            using var timeoutCts = new CancellationTokenSource(
+                TimeSpan.FromMinutes(3)
+            );
 
-            string jsonResponse =
-                await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
+            HttpResponseMessage response;
+            try
             {
-                throw new HttpRequestException(
-                    $"Bebity job search failed with HTTP {(int)response.StatusCode}."
+                response = await _httpClient.SendAsync(
+                    httpRequest,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    timeoutCts.Token
+                );
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    "Bebity job search did not complete within 3 minutes."
                 );
             }
 
-            using JsonDocument json =
-                JsonDocument.Parse(jsonResponse);
-
-            if (json.RootElement.ValueKind != JsonValueKind.Array)
+            using (response)
             {
-                throw new JsonException(
-                    "Bebity response was not a dataset-item array."
-                );
-            }
+                string jsonResponse =
+                    await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
-            foreach (JsonElement item in json.RootElement.EnumerateArray())
-            {
-                string title = GetString(item, "title").Trim();
-                string companyName = GetString(item, "companyName").Trim();
-                string description = GetString(item, "description");
-                string linkedInJobUrl = GetString(item, "jobUrl").Trim();
-                string applyUrl = GetString(item, "applyUrl").Trim();
-                string contractType = NormalizeEmploymentType(
-                    GetString(item, "contractType")
-                );
-                string workType = NormalizeWorkMode(
-                    GetString(item, "workType")
-                );
-
-                if (string.IsNullOrWhiteSpace(title) ||
-                    string.IsNullOrWhiteSpace(linkedInJobUrl) ||
-                    string.IsNullOrWhiteSpace(contractType) ||
-                    string.IsNullOrWhiteSpace(workType))
+                if (!response.IsSuccessStatusCode)
                 {
-                    continue;
+                    throw new HttpRequestException(
+                        $"Bebity job search failed with HTTP {(int)response.StatusCode}."
+                    );
                 }
 
-                string externalJobId =
-                    CreateBebityExternalJobId(linkedInJobUrl);
+                using JsonDocument json =
+                    JsonDocument.Parse(jsonResponse);
 
-                if (string.IsNullOrWhiteSpace(externalJobId))
+                if (json.RootElement.ValueKind != JsonValueKind.Array)
                 {
-                    continue;
+                    throw new JsonException(
+                        "Bebity response was not a dataset-item array."
+                    );
                 }
 
-                // CareerMatch's JobUrl is the destination opened when the user
-                // applies. Prefer Bebity's direct apply URL, then LinkedIn URL.
-                string destinationUrl =
-                    !string.IsNullOrWhiteSpace(applyUrl)
-                        ? applyUrl
-                        : linkedInJobUrl;
+                foreach (JsonElement item in json.RootElement.EnumerateArray())
+                {
+                    string title = GetString(item, "title").Trim();
+                    string companyName = GetString(item, "companyName").Trim();
+                    string description = GetString(item, "description");
+                    string linkedInJobUrl = GetString(item, "jobUrl").Trim();
+                    string applyUrl = GetString(item, "applyUrl").Trim();
+                    string contractType = NormalizeEmploymentType(
+                        GetString(item, "contractType")
+                    );
+                    string workType = NormalizeWorkMode(
+                        GetString(item, "workType")
+                    );
 
-                jobs.Add(
-                    new Job
+                    if (string.IsNullOrWhiteSpace(title) ||
+                        string.IsNullOrWhiteSpace(linkedInJobUrl) ||
+                        string.IsNullOrWhiteSpace(contractType) ||
+                        string.IsNullOrWhiteSpace(workType))
                     {
-                        ExternalJobId = externalJobId,
-                        Title = title,
-                        CompanyName = companyName,
-                        Country = request.Country.Trim(),
-                        City = string.IsNullOrWhiteSpace(request.City)
-                            ? null
-                            : request.City.Trim(),
-                        Description = description,
-                        DescriptionHash = CreateDescriptionHash(description),
-                        ClassificationHash = null,
-                        ClassifiedAt = null,
-                        JobUrl = destinationUrl,
-                        EmploymentType = contractType,
-                        WorkMode = workType,
-                        PostedDate = GetBebityPostedDate(item),
-                        CreatedAt = DateTime.UtcNow,
-                        PrimaryRole = request.Role.Trim()
+                        continue;
                     }
-                );
+
+                    string externalJobId =
+                        CreateBebityExternalJobId(linkedInJobUrl);
+
+                    if (string.IsNullOrWhiteSpace(externalJobId))
+                    {
+                        continue;
+                    }
+
+                    // CareerMatch's JobUrl is the destination opened when the user
+                    // applies. Prefer Bebity's direct apply URL, then LinkedIn URL.
+                    string destinationUrl =
+                        !string.IsNullOrWhiteSpace(applyUrl)
+                            ? applyUrl
+                            : linkedInJobUrl;
+
+                    jobs.Add(
+                        new Job
+                        {
+                            ExternalJobId = externalJobId,
+                            Title = title,
+                            CompanyName = companyName,
+                            Country = request.Country.Trim(),
+                            City = string.IsNullOrWhiteSpace(request.City)
+                                ? null
+                                : request.City.Trim(),
+                            Description = description,
+                            DescriptionHash = CreateDescriptionHash(description),
+                            ClassificationHash = null,
+                            ClassifiedAt = null,
+                            JobUrl = destinationUrl,
+                            EmploymentType = contractType,
+                            WorkMode = workType,
+                            PostedDate = GetBebityPostedDate(item),
+                            CreatedAt = DateTime.UtcNow,
+                            PrimaryRole = request.Role.Trim()
+                        }
+                    );
+                }
             }
 
             return jobs;
