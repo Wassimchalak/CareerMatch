@@ -40,10 +40,22 @@ namespace CareerMatch.API.Services
         {
             ValidateSearchRequest(request);
 
+            string cacheKey = CreateSearchCacheKey(request);
+
+            List<Job>? cachedJobs = await GetCachedJobsAsync(cacheKey);
+
+            if (cachedJobs != null)
+            {
+                return MapJobsToSearchResponses(cachedJobs);
+            }
+
             List<Job> jobs = await SearchBebityAsync(request);
 
             if (jobs.Count == 0)
             {
+                // Cache empty searches too so repeated identical searches do not
+                // keep calling Bebity during the same 24-hour period.
+                await SaveSearchCacheAsync(cacheKey, new List<int>());
                 return new List<JobSearchResponse>();
             }
 
@@ -61,6 +73,17 @@ namespace CareerMatch.API.Services
                 await SaveOrUpdateJobAsync(job);
             }
 
+            await SaveSearchCacheAsync(
+                cacheKey,
+                jobs.Select(job => job.JobId).ToList()
+            );
+
+            return MapJobsToSearchResponses(jobs);
+        }
+
+        private static List<JobSearchResponse> MapJobsToSearchResponses(
+            IEnumerable<Job> jobs)
+        {
             return jobs
                 .Select(job => new JobSearchResponse
                 {
@@ -81,6 +104,173 @@ namespace CareerMatch.API.Services
                     MatchStatus = "Pending"
                 })
                 .ToList();
+        }
+
+        private static string CreateSearchCacheKey(JobSearchRequest request)
+        {
+            string rawKey = string.Join(
+                "|",
+                NormalizeCachePart(request.Role),
+                NormalizeCachePart(request.Country),
+                NormalizeCachePart(request.City),
+                NormalizeCachePart(request.EmploymentType),
+                NormalizeCachePart(request.WorkType)
+            );
+
+            return CreateSha256Hash(rawKey);
+        }
+
+        private static string NormalizeCachePart(string? value)
+        {
+            return string.Join(
+                " ",
+                (value ?? string.Empty)
+                    .Trim()
+                    .ToLowerInvariant()
+                    .Split(
+                        new[] { ' ', '\r', '\n', '\t' },
+                        StringSplitOptions.RemoveEmptyEntries
+                    )
+            );
+        }
+
+        private async Task<List<Job>?> GetCachedJobsAsync(string cacheKey)
+        {
+            using var connection = _dbConnectionFactory.CreateConnection();
+
+            string? jobIdsJson = await connection.QueryFirstOrDefaultAsync<string?>(
+                @"
+                SELECT JobIdsJson
+                FROM JobSearchCache
+                WHERE CacheKey = @CacheKey
+                  AND ExpiresAt > SYSUTCDATETIME();
+                ",
+                new { CacheKey = cacheKey }
+            );
+
+            if (jobIdsJson == null)
+            {
+                return null;
+            }
+
+            List<int> jobIds;
+
+            try
+            {
+                jobIds = JsonSerializer.Deserialize<List<int>>(jobIdsJson)
+                    ?? new List<int>();
+            }
+            catch (JsonException)
+            {
+                // Treat a corrupt cache row as a miss.
+                return null;
+            }
+
+            if (jobIds.Count == 0)
+            {
+                return new List<Job>();
+            }
+
+            List<Job> cachedJobs =
+                (
+                    await connection.QueryAsync<Job>(
+                        @"
+                        SELECT
+                            JobId,
+                            ExternalJobId,
+                            Title,
+                            CompanyName,
+                            Country,
+                            City,
+                            Description,
+                            DescriptionHash,
+                            JobUrl,
+                            EmploymentType,
+                            WorkMode,
+                            PostedDate,
+                            CreatedAt,
+                            PrimaryRole
+                        FROM Jobs
+                        WHERE JobId IN @JobIds;
+                        ",
+                        new { JobIds = jobIds }
+                    )
+                ).ToList();
+
+            // If one of the referenced Jobs rows disappeared, treat this as a
+            // cache miss rather than returning an incomplete result set.
+            if (cachedJobs.Count != jobIds.Count)
+            {
+                return null;
+            }
+
+            Dictionary<int, Job> jobsById =
+                cachedJobs.ToDictionary(job => job.JobId);
+
+            return jobIds
+                .Where(jobsById.ContainsKey)
+                .Select(jobId => jobsById[jobId])
+                .ToList();
+        }
+
+        private async Task SaveSearchCacheAsync(
+            string cacheKey,
+            List<int> jobIds)
+        {
+            using var connection = _dbConnectionFactory.CreateConnection();
+
+            string jobIdsJson = JsonSerializer.Serialize(jobIds);
+
+            await connection.ExecuteAsync(
+                @"
+                UPDATE JobSearchCache
+                SET
+                    JobIdsJson = @JobIdsJson,
+                    CreatedAt = SYSUTCDATETIME(),
+                    ExpiresAt = DATEADD(HOUR, 24, SYSUTCDATETIME())
+                WHERE CacheKey = @CacheKey;
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    BEGIN TRY
+                        INSERT INTO JobSearchCache
+                        (
+                            CacheKey,
+                            JobIdsJson,
+                            CreatedAt,
+                            ExpiresAt
+                        )
+                        VALUES
+                        (
+                            @CacheKey,
+                            @JobIdsJson,
+                            SYSUTCDATETIME(),
+                            DATEADD(HOUR, 24, SYSUTCDATETIME())
+                        );
+                    END TRY
+                    BEGIN CATCH
+                        IF ERROR_NUMBER() IN (2601, 2627)
+                        BEGIN
+                            UPDATE JobSearchCache
+                            SET
+                                JobIdsJson = @JobIdsJson,
+                                CreatedAt = SYSUTCDATETIME(),
+                                ExpiresAt = DATEADD(HOUR, 24, SYSUTCDATETIME())
+                            WHERE CacheKey = @CacheKey;
+                        END
+                        ELSE
+                        BEGIN
+                            THROW;
+                        END
+                    END CATCH
+                END
+                ",
+                new
+                {
+                    CacheKey = cacheKey,
+                    JobIdsJson = jobIdsJson
+                }
+            );
         }
 
         /// <summary>
