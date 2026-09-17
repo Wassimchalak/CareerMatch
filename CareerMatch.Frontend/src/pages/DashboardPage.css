@@ -23,8 +23,12 @@ select {
 }
 
 .dashboard-layout {
+    width: 100%;
     min-height: 100vh;
+    min-height: 100dvh;
+
     color: var(--dashboard-text);
+
     background:
         radial-gradient(
             circle at 80% 10%,
