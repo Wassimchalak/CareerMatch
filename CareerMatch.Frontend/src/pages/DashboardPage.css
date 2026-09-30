@@ -11,7 +11,23 @@
     --dashboard-pink: #ef72d8;
     --dashboard-sidebar-width: 270px;
 }
+html {
+    min-height: 100%;
+    background-color: #08070f;
+}
 
+body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #08070f;
+}
+
+#root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #08070f;
+}
 * {
     box-sizing: border-box;
 }
@@ -170,6 +186,7 @@ select {
 
 .dashboard-main {
     min-height: 100vh;
+    min-height: 100dvh;
     margin-left: var(--dashboard-sidebar-width);
 }
 
@@ -1255,7 +1272,16 @@ select {
     font-weight: 600;
     animation: cv-upload-message-in 0.3s ease;
 }
-
+@media (max-width: 860px) {
+    html,
+    body,
+    #root,
+    .dashboard-layout,
+    .dashboard-main {
+        min-height: 100dvh;
+        background-color: var(--dashboard-background);
+    }
+}
 @keyframes cv-upload-spin {
     to {
         transform: rotate(360deg);

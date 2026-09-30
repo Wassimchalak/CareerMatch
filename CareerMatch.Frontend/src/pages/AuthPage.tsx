@@ -469,7 +469,7 @@ function AuthPage() {
 
                         <div className="form-group">
                             <label htmlFor="password">
-                                Password
+                                {isSignUp ? "Create a password" : "Password"}
                             </label>
 
                             <div className="input-container">
@@ -488,7 +488,11 @@ function AuthPage() {
                                             ? "text"
                                             : "password"
                                     }
-                                    placeholder="Enter your password"
+                                  placeholder={
+                                            isSignUp
+                                                ? "Create a password"
+                                                : "Enter your password"
+                                        }
                                     value={password}
                                     onChange={(
                                         event

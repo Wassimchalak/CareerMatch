@@ -6,8 +6,16 @@ html,
 body,
 #root {
     width: 100%;
+    min-width: 100%;
     min-height: 100%;
     margin: 0;
+    background: #08070f;
+}
+
+body,
+#root {
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 
 body {
@@ -16,7 +24,6 @@ body {
         Inter,
         Arial,
         sans-serif;
-    background: #030516;
 }
 
 button,

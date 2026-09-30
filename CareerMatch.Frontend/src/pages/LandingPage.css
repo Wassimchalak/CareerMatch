@@ -8,7 +8,7 @@
     background:
         radial-gradient(
             circle at 75% 25%,
-            rgba(236, 72, 80, 0.28),
+            rgba(236, 72, 153, 0.28),
             transparent 30%
         ),
         radial-gradient(
@@ -198,10 +198,7 @@
         background 0.25s ease;
 }
 
-.feature-card:hover {
-    transform: translateY(-8px);
-    background: rgba(255, 255, 255, 0.1);
-}
+
 
 .feature-icon {
     display: grid;
