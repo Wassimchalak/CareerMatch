@@ -4,6 +4,6 @@ namespace CareerMatch.API.DTOs
     {
         public string SkillName { get; set; } = string.Empty;
 
-        public decimal YearsOfExperience { get; set; }
+        public int YearsOfExperience { get; set; }
     }
 }
