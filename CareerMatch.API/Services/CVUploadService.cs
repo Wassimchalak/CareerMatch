@@ -87,6 +87,15 @@ namespace CareerMatch.API.Services
             string cvTextHash =
                 CreateTextHash(extractedText);
 
+            /*
+             * AI now extracts:
+             *
+             * - PrimaryRole
+             * - ExperienceLevel
+             * - ProfessionalYearsOfExperience
+             * - Skills
+             * - YearsOfExperience for each skill
+             */
             var aiResult =
                 await _aiService.ExtractSkillsAsync(
                     extractedText
@@ -110,20 +119,58 @@ namespace CareerMatch.API.Services
                 DeleteFileIfExists(filePath);
 
                 throw new InvalidOperationException(
-                    "please upload a valid cv."
+                    "Please upload a valid CV."
                 );
             }
+
+            /*
+             * Normalize the AI result before saving it.
+             *
+             * This prevents an unexpected AI value such as
+             * "Junior" or "Mid-Level" from violating the
+             * database constraint.
+             */
+            string experienceLevel =
+                NormalizeExperienceLevel(
+                    aiResult!.ExperienceLevel
+                );
+
+            decimal professionalYearsOfExperience =
+                Math.Max(
+                    0m,
+                    aiResult.ProfessionalYearsOfExperience
+                );
 
             var cv = new CV
             {
                 UserId = userId,
-                OriginalFileName = file.FileName,
-                StoredFileName = storedFileName,
-                FilePath = filePath,
-                ExtractedText = extractedText,
-                PrimaryRole = aiResult!.PrimaryRole.Trim(),
-                CVTextHash = cvTextHash,
-                UploadedAt = DateTime.UtcNow
+
+                OriginalFileName =
+                    file.FileName,
+
+                StoredFileName =
+                    storedFileName,
+
+                FilePath =
+                    filePath,
+
+                ExtractedText =
+                    extractedText,
+
+                PrimaryRole =
+                    aiResult.PrimaryRole.Trim(),
+
+                ExperienceLevel =
+                    experienceLevel,
+
+                ProfessionalYearsOfExperience =
+                    professionalYearsOfExperience,
+
+                CVTextHash =
+                    cvTextHash,
+
+                UploadedAt =
+                    DateTime.UtcNow
             };
 
             using var connection =
@@ -145,6 +192,8 @@ namespace CareerMatch.API.Services
                         FilePath,
                         ExtractedText,
                         PrimaryRole,
+                        ExperienceLevel,
+                        ProfessionalYearsOfExperience,
                         CVTextHash,
                         UploadedAt
                     )
@@ -157,18 +206,28 @@ namespace CareerMatch.API.Services
                         @FilePath,
                         @ExtractedText,
                         @PrimaryRole,
+                        @ExperienceLevel,
+                        @ProfessionalYearsOfExperience,
                         @CVTextHash,
                         @UploadedAt
                     );
                 ";
 
                 cv.CVId =
-                    await connection.ExecuteScalarAsync<int>(
-                        insertCvSql,
-                        cv,
-                        transaction
-                    );
+                    await connection
+                        .ExecuteScalarAsync<int>(
+                            insertCvSql,
+                            cv,
+                            transaction
+                        );
 
+                /*
+                 * The AI may accidentally return the same
+                 * skill more than once.
+                 *
+                 * Keep one copy and preserve the highest
+                 * supported experience value.
+                 */
                 var uniqueSkills =
                     aiResult.Skills
                         .Where(skill =>
@@ -177,7 +236,9 @@ namespace CareerMatch.API.Services
                             )
                         )
                         .GroupBy(
-                            skill => skill.SkillName.Trim(),
+                            skill =>
+                                skill.SkillName.Trim(),
+
                             StringComparer.OrdinalIgnoreCase
                         )
                         .Select(group =>
@@ -206,7 +267,8 @@ namespace CareerMatch.API.Services
                                 ",
                                 new
                                 {
-                                    SkillName = skillName
+                                    SkillName =
+                                        skillName
                                 },
                                 transaction
                             );
@@ -231,18 +293,47 @@ namespace CareerMatch.API.Services
                                     ",
                                     new
                                     {
-                                        SkillName = skillName,
-                                        CreatedAt = DateTime.UtcNow
+                                        SkillName =
+                                            skillName,
+
+                                        CreatedAt =
+                                            DateTime.UtcNow
                                     },
                                     transaction
                                 );
 
                         skill = new Skill
                         {
-                            SkillId = newSkillId,
-                            SkillName = skillName
+                            SkillId =
+                                newSkillId,
+
+                            SkillName =
+                                skillName
                         };
                     }
+
+                    /*
+                     * Skill experience is separate from
+                     * professional seniority.
+                     *
+                     * Example:
+                     *
+                     * ExperienceLevel = Entry
+                     * ProfessionalYearsOfExperience = 0
+                     *
+                     * C# = 1
+                     * React = 1
+                     * SQL Server = 1
+                     *
+                     * This is valid when those skills are
+                     * strongly demonstrated through projects,
+                     * internships, or substantial practical use.
+                     */
+                    int skillYearsOfExperience =
+                        Math.Max(
+                            0,
+                            aiSkill.YearsOfExperience
+                        );
 
                     await connection.ExecuteAsync(
                         @"
@@ -263,14 +354,17 @@ namespace CareerMatch.API.Services
                         ",
                         new
                         {
-                            CVId = cv.CVId,
-                            SkillId = skill.SkillId,
+                            CVId =
+                                cv.CVId,
+
+                            SkillId =
+                                skill.SkillId,
+
                             YearsOfExperience =
-                                Math.Max(
-                                    0,
-                                    aiSkill.YearsOfExperience
-                                ),
-                            CreatedAt = DateTime.UtcNow
+                                skillYearsOfExperience,
+
+                            CreatedAt =
+                                DateTime.UtcNow
                         },
                         transaction
                     );
@@ -281,32 +375,125 @@ namespace CareerMatch.API.Services
             catch
             {
                 transaction.Rollback();
+
                 DeleteFileIfExists(filePath);
+
                 throw;
             }
 
             return new CVResponse
             {
-                CVId = cv.CVId,
-                UserId = cv.UserId,
-                OriginalFileName = cv.OriginalFileName,
-                StoredFileName = cv.StoredFileName,
-                FilePath = cv.FilePath,
-                UploadedAt = cv.UploadedAt
+                CVId =
+                    cv.CVId,
+
+                UserId =
+                    cv.UserId,
+
+                OriginalFileName =
+                    cv.OriginalFileName,
+
+                StoredFileName =
+                    cv.StoredFileName,
+
+                FilePath =
+                    cv.FilePath,
+
+                UploadedAt =
+                    cv.UploadedAt
+            };
+        }
+
+        /*
+         * Converts whatever the AI returns into one of
+         * the values accepted by CareerMatch.
+         *
+         * Final stored values:
+         *
+         * Entry
+         * Mid
+         * Senior
+         * Lead
+         * Unknown
+         */
+        private static string NormalizeExperienceLevel(
+            string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "Unknown";
+            }
+
+            string normalizedValue =
+                value
+                    .Trim()
+                    .ToLowerInvariant();
+
+            return normalizedValue switch
+            {
+                "entry" =>
+                    "Entry",
+
+                "entry level" =>
+                    "Entry",
+
+                "entry-level" =>
+                    "Entry",
+
+                "junior" =>
+                    "Entry",
+
+                "jr" =>
+                    "Entry",
+
+                "mid" =>
+                    "Mid",
+
+                "mid level" =>
+                    "Mid",
+
+                "mid-level" =>
+                    "Mid",
+
+                "intermediate" =>
+                    "Mid",
+
+                "senior" =>
+                    "Senior",
+
+                "sr" =>
+                    "Senior",
+
+                "lead" =>
+                    "Lead",
+
+                "technical lead" =>
+                    "Lead",
+
+                "tech lead" =>
+                    "Lead",
+
+                "principal" =>
+                    "Lead",
+
+                _ =>
+                    "Unknown"
             };
         }
 
         private static string ExtractTextFromPdf(
             string filePath)
         {
-            var text = new StringBuilder();
+            var text =
+                new StringBuilder();
 
             using var document =
                 PdfDocument.Open(filePath);
 
             foreach (var page in document.GetPages())
             {
-                text.AppendLine(page.Text);
+                text.AppendLine(
+                    page.Text
+                );
             }
 
             return text.ToString();
@@ -351,7 +538,8 @@ namespace CareerMatch.API.Services
                             '\n',
                             '\t'
                         },
-                        StringSplitOptions.RemoveEmptyEntries
+                        StringSplitOptions
+                            .RemoveEmptyEntries
                     )
                 )
                 .Trim();

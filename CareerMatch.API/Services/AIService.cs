@@ -30,7 +30,7 @@ namespace CareerMatch.API.Services
             _configuration = configuration;
         }
 
-      public async Task<AICVAnalysisResult> ExtractSkillsAsync(
+    public async Task<AICVAnalysisResult> ExtractSkillsAsync(
     string cvText)
 {
     if (string.IsNullOrWhiteSpace(cvText))
@@ -51,16 +51,23 @@ Your task is to:
 
 1. Determine whether the document is a genuine CV or resume.
 2. Determine whether it is written primarily in English or French.
-3. Only when both conditions are satisfied, extract the candidate's main professional role and supported skills.
+3. Only when both conditions are satisfied:
+   - extract the candidate's main professional role,
+   - determine the candidate's professional experience level,
+   - calculate total relevant professional work experience,
+   - extract supported professional and technical skills,
+   - estimate experience for each skill.
 
 Return JSON only in this exact format:
 
 {{
-  ""primaryRole"": ""Translator"",
+  ""primaryRole"": ""Software Developer"",
+  ""experienceLevel"": ""Entry"",
+  ""professionalYearsOfExperience"": 0.5,
   ""skills"": [
     {{
-      ""skillName"": ""Translation"",
-      ""yearsOfExperience"": 0
+      ""skillName"": ""C#"",
+      ""yearsOfExperience"": 1
     }}
   ]
 }}
@@ -71,12 +78,15 @@ For every invalid document, return exactly:
 
 {{
   ""primaryRole"": """",
+  ""experienceLevel"": ""Unknown"",
+  ""professionalYearsOfExperience"": 0,
   ""skills"": []
 }}
 
 DOCUMENT TYPE VALIDATION:
 
-Accept the document only when it clearly represents the CV or resume of one specific candidate.
+Accept the document only when it clearly represents the CV or resume
+of one specific candidate.
 
 A valid CV may contain information such as:
 
@@ -95,17 +105,11 @@ A valid CV may contain information such as:
 
 The document does NOT need to contain every section.
 
-A candidate does NOT need previous work experience for the document to be considered a valid CV.
+A candidate does NOT need previous work experience for the document
+to be considered a valid CV.
 
-Student CVs, fresh-graduate CVs, and entry-level CVs are valid when they contain a coherent combination of candidate information such as:
-
-- A professional or career-focused summary
-- Education
-- Relevant qualifications
-- Projects
-- Professional skills
-- Technical skills
-- Languages or domain-specific competencies
+Student CVs, fresh-graduate CVs, and entry-level CVs are valid when
+they contain a coherent professional or educational profile.
 
 Do not reject a genuine CV merely because:
 
@@ -113,27 +117,21 @@ Do not reject a genuine CV merely because:
 - The candidate is a student
 - The candidate is a fresh graduate
 - The CV has no employment-history section
-- The CV contains only a summary, education, qualifications, projects, languages, and/or professional skills
+- The candidate's experience mainly comes from projects or education
 
-The information must still clearly describe the professional or educational background of one candidate.
+Reject documents that are primarily:
 
-Reject the document if it is primarily or exclusively any of the following:
-
-- Interview questions
-- Interview answers
+- Interview questions or answers
 - Interview preparation material
-- A generated interview-questions PDF
-- A cover letter
-- A motivation letter
-- A recommendation letter
+- Cover letters
+- Motivation letters
+- Recommendation letters
 - School lessons
 - Course notes
-- Lecture material
 - Tutorials
 - Exercises
 - Assignments
 - Exams
-- Question-and-answer sheets
 - Books
 - Articles
 - Research papers
@@ -147,29 +145,11 @@ Reject the document if it is primarily or exclusively any of the following:
 - Job advertisements
 - Vacancy announcements
 - Company profiles
-- Portfolios containing no meaningful candidate CV information
-- Certificates without meaningful candidate background information
-- Lists of skills without a meaningful candidate profile
-- Random text
-- Unrelated text
-- Blank documents
-- Corrupted documents
-- Unreadable documents
+- Random or unrelated text
+- Blank, corrupted, or unreadable documents
 
-Do not classify a document as a CV merely because it contains:
-
-- A person's name
-- Contact information
-- Skills
-- Education-related words
-- Employment-related words
-- A job title
-- A company name
-- Questions about a candidate
-- Advice about writing a CV
-- A job description describing an ideal applicant
-
-The document must clearly describe the background of one candidate rather than discussing careers, jobs, or CVs in general.
+The document must clearly describe the background of one candidate,
+rather than discussing careers, jobs, or CVs in general.
 
 LANGUAGE VALIDATION:
 
@@ -179,90 +159,318 @@ Accept only CVs written primarily in:
 - French
 - A reasonable combination of English and French
 
-Reject the document if it is written primarily in Arabic or any language other than English or French.
+Reject documents written primarily in Arabic or another language.
 
-Also reject it when:
+Technology names such as C#, Java, React, SQL Server, AutoCAD, SAP,
+and Microsoft Excel do not make an otherwise unsupported-language
+CV valid.
 
-- Most meaningful sentences are Arabic
-- The professional experience, education, projects, summary, or skills sections are mainly Arabic
-- English or French appears only in isolated technology names, company names, headings, or short phrases
-- The document is only partially translated and its main content remains in another language
-
-Technology names such as C#, Java, React, SQL Server, AutoCAD, SAP, and Microsoft Excel do not make an otherwise unsupported-language CV valid.
-
-French CVs are valid.
-
-Correctly understand French:
-
-- Section headings
-- Job titles
-- Employment descriptions
-- Education
-- Projects
-- Qualifications
-- Skills
-- Dates
-- Durations
+Correctly understand French section headings, job titles,
+employment descriptions, education, projects, qualifications,
+skills, dates, and durations.
 
 PRIMARY ROLE RULES:
 
 - Extract the candidate's most likely main professional role.
-- Base the role on the candidate's overall professional or educational direction.
-- Consider professional experience, education, projects, qualifications, professional skills, technical skills, and the professional summary.
-- A candidate does NOT need employment experience in order to have a meaningful primary role.
-- For students and fresh graduates, infer the most appropriate professional role when their education, summary, projects, qualifications, and skills clearly support one.
-- Use the candidate's complete profile rather than relying on a single word or heading.
-- Return the primary role in clear English.
-- Ignore seniority words such as Junior, Senior, Lead, Principal, Entry-Level, or Experienced.
-- Do not copy a role from an unrelated job advertisement or job description.
-- Do not invent a role from weak, unrelated, or insufficient evidence.
-- If the candidate's profile has a clear career direction, return the most reasonable role supported by that direction.
-- If no coherent professional or educational direction can reasonably support a role, return the invalid result.
+- Base it on the candidate's overall professional or educational direction.
+- Consider employment, education, projects, qualifications, skills,
+  and the professional summary.
+- Students and fresh graduates may still have a valid primary role.
+- Return the role in clear English.
+- Keep the role normalized and independent of seniority.
 
 Examples:
 
-- A candidate with a Translation degree, a translation-focused summary, and skills such as Translation, Proofreading, Editing, English, and French may reasonably have the primary role ""Translator"".
-- A Computer Science graduate with programming projects and software-development skills may reasonably have the primary role ""Software Developer"".
-- A Finance graduate with accounting coursework, Excel, financial-analysis skills, and a finance-focused summary may reasonably have the primary role ""Financial Analyst"".
-- A Graphic Design graduate with design projects and skills such as Adobe Photoshop, Illustrator, and branding may reasonably have the primary role ""Graphic Designer"".
+""Senior Backend Developer"" -> primaryRole = ""Backend Developer""
+""Junior Software Engineer"" -> primaryRole = ""Software Engineer""
+""Lead Data Engineer"" -> primaryRole = ""Data Engineer""
 
-These examples show how to infer a supported role.
-Do not copy an example unless it genuinely matches the candidate's background.
+Do NOT include words such as:
+
+- Junior
+- Entry-Level
+- Mid
+- Senior
+- Lead
+- Principal
+
+inside primaryRole.
+
+Those words may instead be evidence when determining experienceLevel.
+
+Do not trust a seniority title by itself.
+The candidate's actual employment history and responsibilities
+are more important.
+
+PROFESSIONAL EXPERIENCE RULES:
+
+professionalYearsOfExperience means actual relevant professional
+work experience.
+
+Professional work experience is the strongest evidence for seniority.
+
+Count relevant professional experience from:
+
+- Full-time employment
+- Part-time professional employment
+- Contract employment
+- Clearly professional freelance/client work
+- Internships
+
+Calculate the actual calendar duration as accurately as possible
+from the dates shown in the CV.
+
+Return professionalYearsOfExperience using one decimal place when useful.
+
+Examples:
+
+3 months -> approximately 0.3
+6 months -> approximately 0.5
+1 year -> 1
+2 years 6 months -> approximately 2.5
+
+Do NOT count the following as professionalYearsOfExperience:
+
+- University projects
+- Academic projects
+- Personal projects
+- Portfolio projects
+- Coursework
+- Tutorials
+- Self-study
+- Time since the candidate first learned programming
+- Time since a skill was first listed
+
+Do not double-count overlapping professional jobs.
+
+Only count experience relevant to the candidate's professional direction.
+
+For example:
+
+A candidate with 5 years in accounting and 6 months in software
+development does NOT have 5 years of software-development experience.
+
+EXPERIENCE LEVEL RULES:
+
+experienceLevel must be exactly one of:
+
+""Entry""
+""Mid""
+""Senior""
+""Lead""
+""Unknown""
+
+Professional employment is the PRIMARY evidence for experience level.
+
+Projects and technical skills can demonstrate ability,
+but projects alone must NEVER make a candidate Mid, Senior, or Lead.
+
+Do not classify somebody as Mid, Senior, or Lead merely because:
+
+- They know many technologies
+- They have many projects
+- Their projects are technically advanced
+- They have studied programming for several years
+- Their CV calls them Senior
+- Their summary claims they are experienced
+
+Use actual professional history and responsibilities.
+
+ENTRY:
+
+Normally use Entry when the candidate is:
+
+- A student
+- A fresh graduate
+- New to the profession
+- Mainly experienced through projects
+- Mainly experienced through internships
+- Has limited relevant regular professional employment
+- Has little evidence of independent professional ownership
+
+A candidate may have strong skills and many projects and still
+correctly be Entry.
+
+MID:
+
+Use Mid only when there is meaningful relevant professional employment
+and evidence that the candidate can work independently.
+
+Typical Mid evidence includes:
+
+- Multiple years of relevant professional employment
+- Independent delivery of production features
+- Ownership of modules or meaningful work areas
+- Working with real production systems
+- Limited need for supervision
+
+As a general guide, Mid often corresponds to approximately
+2-5 years of relevant professional employment, but years alone
+must not determine the classification.
+
+SENIOR:
+
+Use Senior only when there is strong evidence of substantial
+relevant professional experience AND higher-level responsibility.
+
+Evidence may include:
+
+- Several years of relevant professional employment
+- Ownership of complex production systems
+- Architecture or design responsibility
+- Significant technical decision-making
+- Mentoring less-experienced developers
+- Leading major technical work
+- Broad independent responsibility
+
+As a general guide, Senior often corresponds to approximately
+5 or more years of relevant professional employment, but the
+responsibility evidence is also required.
+
+A ""Senior"" job title alone is NOT sufficient.
+
+LEAD:
+
+Use Lead only when the CV clearly demonstrates senior-level
+professional experience plus significant leadership responsibility.
+
+Examples include:
+
+- Leading engineers
+- Technical direction
+- Architecture ownership
+- Team coordination
+- Mentoring
+- Responsibility for major technical decisions
+
+UNKNOWN:
+
+Use Unknown when the CV does not contain enough reliable evidence
+to determine a professional experience level.
 
 SKILL EXTRACTION RULES:
 
-- Extract only real technical or professional skills supported by the candidate's CV.
-- Skills may come from experience, projects, education, qualifications, certifications, or explicitly listed competencies.
+- Extract only real technical or professional skills supported by the CV.
+- Skills may come from professional experience, internships, projects,
+  education, qualifications, certifications, or clearly demonstrated competencies.
 - Use common normalized English skill names.
-- Preserve official technology names such as C#, C++, Java, React, SQL Server, AutoCAD, SAP, and Microsoft Excel.
+- Preserve official technology names such as C#, C++, Java, React,
+  SQL Server, AutoCAD, SAP, and Microsoft Excel.
 - Keep separate technologies as separate skills.
-- Domain-specific professional skills such as Translation, Proofreading, Editing, Accounting, Financial Analysis, Graphic Design, or Project Management are valid skills when supported by the CV.
-- Languages may be extracted when they are clearly relevant professional competencies.
-- Do not extract vague personality descriptions as skills unless they are clearly presented as professional competencies.
-- Do not extract skills from job requirements, interview questions, course lessons, tutorials, or unrelated text.
-- Do not infer that the candidate has a skill merely because it appears somewhere in the document.
-- Do not invent skills, experience, roles, employers, education, qualifications, certifications, or projects.
+- Domain-specific professional skills are valid.
+- Languages may be extracted when they are relevant professional competencies.
+- Do not invent skills.
+- Do not infer a skill merely because it appears in unrelated text.
 
-EXPERIENCE RULES:
+SKILL YEARS OF EXPERIENCE RULES:
 
-- Estimate yearsOfExperience only when supported by employment dates, project durations, explicit years, or clear professional context.
-- Interpret both English and French dates and durations.
-- Avoid double-counting overlapping jobs or projects.
-- When a skill is clearly supported but its duration cannot reasonably be determined, return 0.
-- For students and fresh graduates with listed skills but no professional duration information, use 0.
-- Use whole numbers.
-- Never return a negative number.
+yearsOfExperience represents meaningful hands-on experience
+with that specific skill.
 
-VALIDITY AND EXTRACTION RELATIONSHIP:
+Professional usage is the strongest evidence.
 
-A CV must not be considered invalid only because:
+For candidates with professional employment:
+
+- Determine which skills were actually used in each professional role.
+- Use employment dates to estimate duration.
+- Do not give every skill the full duration of a job unless the CV
+  reasonably supports that the skill was used in that role.
+- Do not double-count overlapping periods.
+
+For Entry-level candidates:
+
+Projects, internships, substantial academic work, and repeated
+practical use may demonstrate meaningful hands-on experience.
+
+When an Entry-level candidate has clearly used a skill substantially
+but does not yet have a full year of regular professional employment,
+return 1 year rather than 0.
+
+Examples:
+
+A fresh graduate built multiple substantial C# applications:
+C# may reasonably receive 1 year.
+
+A student built a substantial React application and clearly used
+React repeatedly:
+React may reasonably receive 1 year.
+
+A candidate completed a meaningful internship using SQL Server:
+SQL Server may reasonably receive 1 year.
+
+However, do NOT automatically give 1 year to every listed skill.
+
+Return 0 when:
+
+- The skill is only present in a skills list with no practical evidence
+- The candidate's actual use cannot be reasonably supported
+- The skill appears only briefly or incidentally
+- There is insufficient evidence of meaningful hands-on use
+
+Project-only experience must normally NOT exceed 1 year.
+
+Projects can establish meaningful Entry-level skill experience,
+but they must not create artificial Mid or Senior professional experience.
+
+For skills used professionally for multiple years,
+use the professional employment duration supported by the CV.
+
+Use whole numbers for skill years.
+
+When professional usage is less than one year but is clearly meaningful,
+return 1.
+
+Do not return negative numbers.
+
+IMPORTANT DISTINCTION:
+
+The following values measure different things:
+
+professionalYearsOfExperience:
+Actual relevant professional work history.
+
+experienceLevel:
+Overall professional seniority based primarily on professional work
+history and responsibility.
+
+skills[].yearsOfExperience:
+Hands-on experience with an individual skill.
+
+Therefore this result is completely valid:
+
+{{
+  ""primaryRole"": ""Software Developer"",
+  ""experienceLevel"": ""Entry"",
+  ""professionalYearsOfExperience"": 0,
+  ""skills"": [
+    {{
+      ""skillName"": ""C#"",
+      ""yearsOfExperience"": 1
+    }},
+    {{
+      ""skillName"": ""React"",
+      ""yearsOfExperience"": 1
+    }},
+    {{
+      ""skillName"": ""SQL Server"",
+      ""yearsOfExperience"": 1
+    }}
+  ]
+}}
+
+The candidate may have strong project-based skills while still
+having no regular professional work experience and therefore remain Entry.
+
+VALIDITY RULES:
+
+A CV must not be considered invalid merely because:
 
 - The candidate has no employment history
-- A skill has 0 years of experience
+- The candidate is Entry-level
+- professionalYearsOfExperience is 0
+- A skill has 0 years
 - The candidate is a student or fresh graduate
-- The primary role must be inferred from education, summary, projects, and skills
-
-If the document is clearly a genuine English or French CV and the candidate has a coherent professional or educational direction, extract the supported role and skills.
+- The primary role is inferred from education, summary, projects, and skills
 
 Return the invalid result only when:
 
@@ -270,7 +478,7 @@ Return the invalid result only when:
 - The document is not primarily English or French
 - The document does not meaningfully describe one candidate
 - No coherent professional or educational direction can be identified
-- No meaningful professional or technical skills can be supported by the candidate's information
+- No meaningful professional or technical skills can be supported
 
 OUTPUT RULES:
 
@@ -280,15 +488,15 @@ OUTPUT RULES:
 - Do not include commentary.
 - Do not include explanations.
 - Do not include additional properties.
-- Do not repeat the document text.
-- Always use exactly the properties ""primaryRole"" and ""skills"".
-- Every skill object must contain exactly ""skillName"" and ""yearsOfExperience"".
-- If the document is invalid, return exactly:
-
-{{
-  ""primaryRole"": """",
-  ""skills"": []
-}}
+- Do not repeat the document.
+- Always return exactly:
+  primaryRole,
+  experienceLevel,
+  professionalYearsOfExperience,
+  skills.
+- Every skill object must contain exactly:
+  skillName,
+  yearsOfExperience.
 
 DOCUMENT:
 ---BEGIN DOCUMENT---

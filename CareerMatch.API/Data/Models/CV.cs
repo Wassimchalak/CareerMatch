@@ -21,6 +21,8 @@ namespace CareerMatch.API.Models
         public DateTime UploadedAt { get; set; } = DateTime.Now;
         public string? PrimaryRole { get; set; }
 
-      
+      public string ExperienceLevel { get; set; } = "Unknown";
+
+public decimal ProfessionalYearsOfExperience { get; set; }
     }
 }
