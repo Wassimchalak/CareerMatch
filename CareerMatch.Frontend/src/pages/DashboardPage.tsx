@@ -947,109 +947,115 @@ const handleToggleJobDescription = (jobId: number) => {
     };
 
     const handleSearchJobs = async (
-        event: FormEvent<HTMLFormElement>
-    ) => {
-        event.preventDefault();
+    event: FormEvent<HTMLFormElement>
+) => {
+    event.preventDefault();
 
-        if (searchingJobs) {
-            return;
-        }
+    if (searchingJobs) {
+        return;
+    }
 
-        clearMessages();
-        setNoSuitableMatches(false);
+    clearMessages();
 
-        if (
-            !searchForm.country.trim() ||
-            !searchForm.role.trim() ||
-            !searchForm.workType ||
-            !searchForm.employmentType
-        ) {
-            setErrorMessage(
-                "Country, role, work mode, and employment type are required."
-            );
-
-            return;
-        }
-
-        setSearchingJobs(true);
-        setHasSearched(true);
-
-        setJobs([]);
-
-        sessionStorage.removeItem(
-            getSearchJobsStorageKey()
+    if (
+        !searchForm.country.trim() ||
+        !searchForm.role.trim() ||
+        !searchForm.workType ||
+        !searchForm.employmentType
+    ) {
+        setErrorMessage(
+            "Country, role, work mode, and employment type are required."
         );
 
+        return;
+    }
+
+    /*
+        IMPORTANT:
+        Do not clear the current page content before
+        the new search finishes.
+
+        This prevents the page height from suddenly
+        collapsing on mobile while searching.
+    */
+    setSearchingJobs(true);
+
+    try {
+        const requestBody = {
+            country: searchForm.country.trim(),
+            city: searchForm.city.trim(),
+            role: searchForm.role.trim(),
+            workType: searchForm.workType,
+            employmentType: searchForm.employmentType,
+        };
+
+        const response =
+            await api.post<JobSearchResponse[]>(
+                "/JobSearch/search",
+                requestBody
+            );
+
+        const returnedJobs =
+            normalizeJobsResponse(
+                response.data
+            );
+
         /*
-            A new search resets which cards were
-            explicitly revealed by the user.
+            The search has now completed.
+            Only now replace the old page content.
+        */
+        setJobs(returnedJobs);
+        setHasSearched(true);
+        setNoSuitableMatches(false);
+
+        /*
+            A completed new search resets previously
+            revealed match scores.
         */
         setRevealedMatchJobIds(
             new Set()
         );
 
-        setSavedJobIds(
-            new Set()
+        sessionStorage.removeItem(
+            getRevealedMatchesStorageKey()
         );
 
-
-        try {
-            const requestBody = {
-                country:
-                    searchForm.country.trim(),
-
-                city:
-                    searchForm.city.trim(),
-
-                role:
-                    searchForm.role.trim(),
-
-                workType:
-                    searchForm.workType,
-
-                employmentType:
-                    searchForm.employmentType,
-            };
-
-            const response =
-                await api.post<JobSearchResponse[]>(
-                    "/JobSearch/search",
-                    requestBody
-                );
-
-            const returnedJobs =
-                normalizeJobsResponse(
-                    response.data
-                );
-
-            setJobs(returnedJobs);
-
+        if (returnedJobs.length > 0) {
             sessionStorage.setItem(
                 getSearchJobsStorageKey(),
                 JSON.stringify(returnedJobs)
             );
-
-            await loadSavedJobs();
-
-            if (returnedJobs.length === 0) {
-                setSuccessMessage(
-                    "The search completed, but no jobs matched the selected filters."
-                );
-            }
-        } catch (error) {
-            setJobs([]);
-
-            setErrorMessage(
-                getErrorMessage(
-                    error,
-                    "Job search failed. Please try again."
-                )
+        } else {
+            sessionStorage.removeItem(
+                getSearchJobsStorageKey()
             );
-        } finally {
-            setSearchingJobs(false);
         }
-    };
 
+        await loadSavedJobs();
+
+        if (returnedJobs.length === 0) {
+            setSuccessMessage(
+                "The search completed, but no jobs matched the selected filters."
+            );
+        }
+    } catch (error) {
+        /*
+            Keep the current results/empty state visible
+            if the new search fails.
+
+            This also prevents another sudden page-height
+            collapse on mobile.
+        */
+        setErrorMessage(
+            getErrorMessage(
+                error,
+                "Job search failed. Please try again."
+            )
+        );
+    } finally {
+        setSearchingJobs(false);
+    }
+};
     const handleCalculateAllMatches = async () => {
         if (calculatingAllScores || jobs.length === 0) {
             return;
