@@ -867,44 +867,52 @@ D. NO NUMERIC YEARS REQUIREMENT
 
 Examples:
 
-""Experience with Java""
+"Experience with Java"
 
-""Strong knowledge of React""
+"Strong knowledge of React"
 
-""Proficiency in C#""
+"Proficiency in C#"
 
-""Hands-on experience with REST APIs""
+"Hands-on experience with REST APIs"
 
-""Solid SQL knowledge""
+"Solid SQL knowledge"
 
-""Familiarity with AWS""
+"Familiarity with AWS"
 
-""Experience building web applications""
+"Experience building web applications"
 
 If the job does NOT state or clearly imply a numeric minimum amount of
 professional experience:
 
-DO NOT invent one.
+- DO NOT invent a professional-years requirement.
+- DO NOT compare the candidate's professionalYearsOfExperience against
+  any imaginary threshold.
+- DO NOT reward the candidate merely because no professional-years
+  requirement exists.
+- DO NOT penalize the candidate because professionalYearsOfExperience is low.
+- The absence of a professional-years requirement is NEUTRAL.
 
-DO NOT penalize the candidate merely because
-candidate.professionalYearsOfExperience is low.
-
-In this situation, place substantially more scoring weight on:
+In this situation, calculate the score using the requirements that
+actually exist, primarily:
 
 - primary role alignment
-- exact required skills
+- exact required technical skills
+- skill-specific experience where stated
 - transferable skills
-- demonstrated hands-on skill experience
-- projects
-- internships
-- responsibilities the candidate appears technically capable of performing
-- education where relevant
+- responsibilities
+- demonstrated hands-on experience
+- required education or certifications
+- location
+- work mode
+- employment type
 
-For jobs without an explicit or clearly implied professional-years minimum,
-technical and role alignment should drive most of the match score.
+IMPORTANT:
 
-A candidate must NOT receive a low score simply because they are Entry level
-when the employer has not actually required substantial professional tenure.
+Do NOT mention the absence of a professional-years requirement in the
+match explanation as though it positively or negatively affected the score.
+
+If no professional minimum exists, simply evaluate and explain the actual
+skills, role alignment, responsibilities, and missing requirements.
 
 --------------------------------------------------
 E. PREFERRED YEARS VS REQUIRED YEARS
@@ -933,7 +941,24 @@ A preferred-years requirement may reduce the score moderately when missing,
 but MUST NOT trigger the same hard score caps as a mandatory minimum.
 
 Never convert a preferred qualification into a required qualification.
+PROFESSIONAL EXPERIENCE ACTIVATION RULE:
 
+candidate.professionalYearsOfExperience must affect the score ONLY when:
+
+1. the job explicitly or clearly requires overall professional/work/
+   industry experience, OR
+
+2. professional seniority is clearly required through strong responsibility
+   evidence such as Senior, Lead, Principal, architecture ownership,
+   leadership, mentoring, or equivalent advanced responsibility.
+
+Otherwise:
+
+professionalYearsOfExperience is NOT a scoring factor.
+
+Do not add points because it is not required.
+Do not subtract points because the candidate has little of it.
+Simply exclude it from that job's score calculation.
 ==================================================
 STEP 2 — PARSE NUMERIC YEAR REQUIREMENTS
 ==================================================
@@ -1619,7 +1644,34 @@ or
 ""does not meet the required Java years""
 
 depending on the actual requirement.
+ABSENT REQUIREMENTS MUST NOT APPEAR AS SCORING FACTORS:
 
+Do not explain a score using something the job did NOT require.
+
+For example, avoid:
+
+"No professional experience minimum was stated, so the candidate scores well."
+
+"No explicit professional-years requirement exists."
+
+"The role does not require professional experience."
+
+The absence of a requirement is neutral and should normally not be
+mentioned in matchExplanation.
+
+Instead explain only the requirements or qualifications that actually
+affected the score.
+
+BAD:
+
+"Candidate matches Java and SQL, and no explicit professional-years
+minimum was stated."
+
+GOOD:
+
+"Strong backend alignment through Java, Spring Boot, SQL databases,
+REST APIs, and Git. Core programming and database requirements are met,
+while some broader framework and Agile requirements are only partially demonstrated."
 ==================================================
 RECOMMENDATION RULES
 ==================================================
