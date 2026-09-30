@@ -633,8 +633,8 @@ JOB:
             string jobsJson =
                 JsonSerializer.Serialize(jobInputs);
 
-          string prompt = $@"
-Match one candidate against every job independently and fairly.
+        string prompt = $@"
+Match one candidate against every job independently, consistently, and fairly.
 
 Return JSON only in this exact format:
 
@@ -643,24 +643,39 @@ Return JSON only in this exact format:
     {{
       ""jobId"": 123,
       ""matchScore"": 85,
-      ""matchExplanation"": ""Strong .NET alignment, but professional experience is below the required level."",
-      ""recommendation"": ""Target roles requiring less professional experience.""
+      ""matchExplanation"": ""Strong alignment in ASP.NET Core, C#, SQL Server, and APIs. The role requires 1-2 years of professional application-development experience, while the candidate has 0.1 years, so the experience gap meaningfully limits the overall match."",
+      ""recommendation"": ""Consider applying, while prioritizing similar roles with lower professional-experience requirements.""
     }}
   ]
 }}
 
-CRITICAL MATCHING PRINCIPLE:
+==================================================
+CORE MATCHING PRINCIPLE
+==================================================
 
-Explicit professional experience requirements in the job ALWAYS take
-priority over technical skill overlap.
+Do NOT treat every mention of ""experience"" or ""years"" as a requirement
+for total professional employment experience.
 
-A candidate must NOT receive a high match score merely because they know
-most of the technologies when they substantially fail the job's explicitly
-required professional years.
+Before scoring a job, determine exactly WHAT each experience requirement
+refers to.
 
-Technical skills cannot compensate for a major professional-experience gap.
+There are different kinds of experience requirements:
 
-ROLE AND EXPERIENCE DATA:
+1. OVERALL PROFESSIONAL EXPERIENCE
+2. SKILL-SPECIFIC EXPERIENCE
+3. SKILL-SPECIFIC PROFESSIONAL EXPERIENCE
+4. NO NUMERIC YEARS REQUIREMENT
+5. PREFERRED EXPERIENCE rather than REQUIRED experience
+
+These categories MUST be evaluated differently.
+
+Do not require the exact word ""professional"".
+
+Determine meaning from the full wording and context.
+
+==================================================
+CANDIDATE DATA
+==================================================
 
 The candidate contains:
 
@@ -672,305 +687,997 @@ The candidate contains:
 These fields have different meanings.
 
 professionalYearsOfExperience:
-Actual relevant professional employment experience.
+Actual relevant professional employment experience, including qualifying
+employment, internships, contracts, freelance work, or client work.
 
 experienceLevel:
-The candidate's overall professional seniority:
+Overall professional seniority:
 Entry, Mid, Senior, Lead, or Unknown.
 
 skills[].years:
-Hands-on experience with an individual technology or professional skill.
+Meaningful hands-on exposure to an individual technology or professional skill.
 
-IMPORTANT:
+Skill years may include:
 
-Skill years may include meaningful Entry-level project, internship,
-academic, or practical experience.
+- professional use
+- internships
+- substantial projects
+- academic projects
+- practical development work
 
-Therefore skill years MUST NOT be treated as equivalent to total
-professional employment years.
+Therefore:
 
-For example:
+SKILL YEARS ARE NOT AUTOMATICALLY EQUIVALENT TO PROFESSIONAL EMPLOYMENT YEARS.
 
-Candidate:
+Example candidate:
+
 professionalYearsOfExperience = 0.1
+
 C# years = 1
+ASP.NET Core years = 1
 React years = 1
 SQL Server years = 1
+Java years = 1
 
-This does NOT mean the candidate has 1 year of professional software
-engineering experience.
+This means:
 
-The candidate has only 0.1 years of professional experience.
+- approximately 0.1 years of actual professional experience
+- approximately 1 year of meaningful hands-on exposure to those technologies
 
-JOB EXPERIENCE ANALYSIS:
+It does NOT mean the candidate has 1 year of professional software-engineering
+employment.
 
-For every job, first determine whether the description explicitly states
-a minimum professional experience requirement.
+==================================================
+STEP 1 — CLASSIFY EVERY EXPERIENCE REQUIREMENT
+==================================================
+
+Before scoring, inspect every statement mentioning years or experience.
+
+Classify it into one of the following categories.
+
+--------------------------------------------------
+A. OVERALL PROFESSIONAL EXPERIENCE
+--------------------------------------------------
+
+This refers to professional, industry, employment, commercial, role-based,
+or real-world work experience.
+
+The wording does NOT need to contain the exact word ""professional"".
 
 Examples:
 
-""4-7 years of experience""
--> minimum required years = 4
+""3+ years of software engineering experience""
 
-""5+ years of software development experience""
--> minimum required years = 5
+""3-5 years of experience in application development""
 
-""At least 3 years of relevant experience""
--> minimum required years = 3
+""At least 2 years working as a backend developer""
+
+""4-7 years of Information Systems development, implementation, and support""
+
+""5 years of industry experience""
+
+""3 years in a software development role""
+
+""2+ years of commercial software development experience""
+
+""Minimum 3 years working in application development""
+
+These should normally be treated as OVERALL PROFESSIONAL EXPERIENCE because
+the years describe working in a profession, role, industry, or development
+capacity rather than familiarity with one isolated technology.
+
+Compare these requirements primarily with:
+
+candidate.professionalYearsOfExperience
+
+Do NOT substitute skill years for missing professional years.
+
+--------------------------------------------------
+B. SKILL-SPECIFIC EXPERIENCE
+--------------------------------------------------
+
+This refers to years using a particular technology, framework, language,
+platform, methodology, or technical skill.
+
+Examples:
+
+""5+ years of Java experience""
+
+""3+ years with React""
+
+""2 years using AWS""
+
+""4+ years of C#""
+
+""3 years working with SQL Server""
+
+""2+ years of Playwright experience""
+
+These requirements should primarily be compared with:
+
+candidate.skills[].years
+
+for that specific skill.
+
+DO NOT automatically compare them against total professionalYearsOfExperience.
+
+Example:
+
+Job:
+""5+ years of Java experience""
+
+Candidate:
+Java years = 1
+
+The candidate does NOT satisfy the Java-years requirement.
+
+However, do not additionally claim that the job requires
+5 years of total professional experience unless the job actually says
+or clearly implies that.
+
+--------------------------------------------------
+C. SKILL-SPECIFIC PROFESSIONAL EXPERIENCE
+--------------------------------------------------
+
+Some requirements explicitly or contextually require professional production
+experience with a particular technology.
+
+Examples:
+
+""5+ years of professional Java development experience""
+
+""3+ years using React in production environments""
+
+""4 years of commercial .NET development""
+
+""3+ years professionally developing applications with Python""
+
+""5 years of enterprise Java development experience""
+
+These requirements involve BOTH:
+
+1. experience with the specific skill
+2. professional context
+
+Evaluate BOTH:
+
+- candidate skill years
+- candidate.professionalYearsOfExperience
+
+Because skill years may include project or academic experience,
+do NOT treat project-only skill years as equivalent to several years
+of professional production use.
+
+Example:
+
+Candidate:
+
+professionalYearsOfExperience = 0.1
+Java years = 1
+
+Job:
+
+""5+ years of professional Java development""
+
+The candidate clearly does NOT meet this requirement.
+
+--------------------------------------------------
+D. NO NUMERIC YEARS REQUIREMENT
+--------------------------------------------------
+
+Examples:
+
+""Experience with Java""
+
+""Strong knowledge of React""
+
+""Proficiency in C#""
+
+""Hands-on experience with REST APIs""
+
+""Solid SQL knowledge""
+
+""Familiarity with AWS""
+
+""Experience building web applications""
+
+If the job does NOT state or clearly imply a numeric minimum amount of
+professional experience:
+
+DO NOT invent one.
+
+DO NOT penalize the candidate merely because
+candidate.professionalYearsOfExperience is low.
+
+In this situation, place substantially more scoring weight on:
+
+- primary role alignment
+- exact required skills
+- transferable skills
+- demonstrated hands-on skill experience
+- projects
+- internships
+- responsibilities the candidate appears technically capable of performing
+- education where relevant
+
+For jobs without an explicit or clearly implied professional-years minimum,
+technical and role alignment should drive most of the match score.
+
+A candidate must NOT receive a low score simply because they are Entry level
+when the employer has not actually required substantial professional tenure.
+
+--------------------------------------------------
+E. PREFERRED YEARS VS REQUIRED YEARS
+--------------------------------------------------
+
+Distinguish REQUIRED experience from PREFERRED experience.
+
+Examples:
+
+REQUIRED:
+
+""Minimum 3 years""
+""3+ years required""
+""Must have 4 years""
+""At least 2 years""
+""Requires 5+ years""
+
+PREFERRED:
+
+""3+ years preferred""
+""Ideally 5 years""
+""Preferred experience: 4+ years""
+""Nice to have 3 years""
+
+A preferred-years requirement may reduce the score moderately when missing,
+but MUST NOT trigger the same hard score caps as a mandatory minimum.
+
+Never convert a preferred qualification into a required qualification.
+
+==================================================
+STEP 2 — PARSE NUMERIC YEAR REQUIREMENTS
+==================================================
+
+When a numeric requirement exists, use the lower bound as the minimum.
+
+Examples:
+
+""4-7 years""
+-> minimum = 4
 
 ""3 to 5 years""
--> minimum required years = 3
+-> minimum = 3
 
-Use the LOWER bound as the minimum requirement when a range is given.
+""5+ years""
+-> minimum = 5
 
-If several different professional experience requirements are stated,
-use the requirement that is relevant to the candidate's target role.
+""At least 3 years""
+-> minimum = 3
 
-Do not invent a required number of years when the job does not state one.
+""Minimum 2 years""
+-> minimum = 2
 
-REQUIRED YEARS RULE — HIGHEST PRIORITY:
+If multiple experience statements exist, evaluate them separately.
 
-When the job explicitly states required professional years:
+Do NOT incorrectly combine unrelated requirements.
 
-1. Compare the job's minimum required professional years directly with
-   candidate.professionalYearsOfExperience.
+Example:
 
-2. Do NOT substitute skill years, project duration, academic work,
-   portfolio work, certifications, or technical similarity for missing
-   professional years.
+""3 years software development experience""
+and
+""2 years React experience""
 
-3. When the candidate meets or exceeds the required professional years,
-   continue evaluating skills, role alignment, seniority, and other factors.
+means:
 
-4. When the candidate is slightly below the minimum requirement,
-   apply a meaningful experience penalty.
+- 3 years overall professional software development
+- 2 years React-specific experience
 
-5. When the candidate is substantially below the minimum requirement,
-   apply a major penalty even if technical skills match extremely well.
+They are two different requirements.
 
-6. A major explicit professional-experience mismatch MUST prevent a
-   Best Match score.
+==================================================
+STEP 3 — PROFESSIONAL EXPERIENCE RULES
+==================================================
 
-7. Strong technical alignment must NEVER override a major required-years gap.
+When the job explicitly or clearly requires OVERALL PROFESSIONAL EXPERIENCE:
 
-MANDATORY SCORE CAPS FOR EXPERIENCE GAPS:
+Compare the required minimum directly with:
 
-If candidate professional experience is less than 50% of the job's
-explicit minimum required years:
+candidate.professionalYearsOfExperience
 
-- The score MUST be below 60.
+Do NOT substitute:
 
-If the candidate has less than 1 year of professional experience and
-the job explicitly requires 4 or more years:
+- project experience
+- academic work
+- portfolio work
+- certifications
+- skill years
+- technical similarity
+- coursework
 
-- The score MUST NOT exceed 50.
+for missing professional employment experience.
 
-If the candidate is Entry level and the job explicitly requires
-4 or more years of professional experience:
+If the candidate meets or exceeds the requirement:
 
-- The score MUST NOT exceed 50.
+Continue evaluating skills, role alignment, seniority, responsibilities,
+and other factors normally.
 
-If the candidate is Entry level and the job clearly requires Senior,
-Lead, advanced, or equivalent professional responsibility together
-with several years of professional experience:
+If the candidate is slightly below the minimum:
 
-- The score MUST NOT exceed 45.
+Apply a meaningful but proportional penalty.
 
-These limits apply even when almost every technical skill matches.
+If the candidate is substantially below the minimum:
 
-A large required-years mismatch is more important than:
-- exact technology matches,
-- transferable technologies,
-- strong projects,
-- portfolio quality,
-- academic experience,
-- certifications,
-- familiarity with frameworks.
+Apply a major penalty.
 
-CALIBRATION EXAMPLE — VERY IMPORTANT:
+A major explicit professional-experience gap must prevent an unrealistically
+high match score even when technical skills align strongly.
+
+Technical skills remain valuable and should still contribute positively,
+but they cannot erase a major mandatory professional-experience gap.
+
+==================================================
+MANDATORY PROFESSIONAL-EXPERIENCE SCORE CAPS
+==================================================
+
+These caps apply ONLY when the job contains a REQUIRED overall professional
+experience minimum or clearly equivalent wording.
+
+They do NOT automatically apply to skill-specific years.
+
+If:
+
+candidate.professionalYearsOfExperience
+<
+50% of the job's required minimum professional years
+
+then:
+
+matchScore MUST be below 60.
+
+If candidate has less than 1 year professional experience
+and the job requires 4 or more professional years:
+
+matchScore MUST NOT exceed 50.
+
+If candidate is Entry level
+and the job requires 4 or more professional years:
+
+matchScore MUST NOT exceed 50.
+
+If candidate is Entry level
+and the job clearly requires Senior, Lead, advanced, or equivalent
+professional responsibility together with several years of professional
+experience:
+
+matchScore MUST NOT exceed 45.
+
+These are MAXIMUM scores, not target scores.
+
+IMPORTANT:
+
+A cap of 50 does NOT mean the score should automatically be 50.
+
+A cap of 45 does NOT mean the score should automatically be 45.
+
+Calculate the real score underneath the ceiling.
+
+Examples:
+
+If the cap is 50, appropriate scores could be:
+
+22
+31
+37
+42
+47
+50
+
+depending on remaining alignment.
+
+Only use a score near the maximum cap when the candidate is otherwise
+very strongly aligned.
+
+A candidate with:
+
+0.1 professional years
+
+against:
+
+10 required professional years
+
+should normally score substantially below the maximum cap even if one
+important technology matches.
+
+==================================================
+STEP 4 — SKILL-SPECIFIC YEARS
+==================================================
+
+When the job specifies years for a particular skill:
+
+Example:
+
+""5+ years Java experience""
+
+Compare against the candidate's Java skill years.
+
+Do NOT automatically interpret the statement as requiring
+5 years of total professional employment unless the wording or context
+clearly makes it professional.
+
+If the candidate has:
+
+Java years = 1
+
+against:
+
+5 years required
+
+this is a significant Java-experience gap.
+
+The importance of that gap depends on how central Java is to the role.
+
+If it is a core mandatory technology:
+
+Apply a major skill penalty.
+
+If the candidate has less than 50% of the required skill years
+for a core technology:
+
+The score should normally remain below 60 unless the overall job description
+provides unusually strong evidence that the requirement is flexible.
+
+If the skill is secondary or one among several alternatives:
+
+Apply a smaller penalty.
+
+Do NOT create an overall professional-experience penalty unless the job
+separately requires professional experience.
+
+==================================================
+STEP 5 — JOBS WITH NO REQUIRED PROFESSIONAL YEARS
+==================================================
+
+If the job does not state or clearly imply a required amount of overall
+professional experience:
+
+DO NOT impose an artificial professional-years gate.
+
+Instead evaluate primarily:
+
+1. Primary role alignment
+2. Required technical skills
+3. Hands-on skill experience
+4. Transferable skills
+5. Responsibilities
+6. Education or certifications if explicitly relevant
+7. Location
+8. Work mode
+9. Employment type
+
+Example:
+
+Job:
+
+""Software Developer""
+
+Requirements:
+
+- C#
+- ASP.NET Core
+- SQL Server
+- REST APIs
+- React
+- good knowledge of OOP
+
+No numeric professional experience requirement is stated.
+
+Candidate:
+
+Entry level
+0.1 professional years
+C# = 1
+ASP.NET Core = 1
+SQL Server = 1
+React = 1
+REST API experience confirmed
+
+Do NOT heavily penalize the candidate simply because professionalYears = 0.1.
+
+This may still be a strong match because the employer did not require
+a minimum professional tenure.
+
+==================================================
+SENIORITY RULES
+==================================================
+
+Determine job seniority using the complete description.
+
+Possible evidence includes:
+
+- Junior, Entry, Graduate
+- Mid-level
+- Senior
+- Lead
+- Principal
+- Staff
+
+Also consider:
+
+- explicit required professional years
+- architecture ownership
+- team leadership
+- mentoring
+- technical direction
+- decision-making authority
+- responsibility for complex production systems
+- independent ownership
+- management or supervision
+- strategic responsibility
+
+Do not rely on title alone.
+
+Do not invent seniority merely because a description sounds technical.
+
+Most software-development jobs contain technical responsibilities.
+
+A role should only receive a significant seniority penalty when the
+description provides meaningful evidence that the expected responsibility
+is above the candidate's level.
+
+If:
+
+- no numeric professional requirement exists
+- no Senior/Lead/etc. title exists
+- no strong advanced-responsibility evidence exists
+
+then:
+
+treat seniority as unspecified.
+
+Do NOT penalize an Entry candidate merely because the job does not explicitly
+say ""Entry level"".
+
+==================================================
+SENIORITY COMPARISON
+==================================================
+
+Entry candidate vs Entry job:
+No seniority penalty.
+
+Entry candidate vs clearly Mid-level job:
+Meaningful penalty.
+
+Entry candidate vs clearly Senior or Lead job:
+Major penalty.
+
+Mid candidate vs Senior job:
+Moderate penalty depending on responsibilities and professional experience.
+
+Senior candidate vs Entry job:
+Do not automatically impose a major penalty unless overqualification is
+clearly relevant.
+
+Explicit professional-year requirements take priority when present.
+
+==================================================
+SKILL MATCHING RULES
+==================================================
+
+Exact required skill present:
+Strong positive contribution.
+
+Closely related or transferable technology:
+Partial positive contribution.
+
+Missing core required technology:
+Meaningful negative contribution.
+
+Missing secondary technology:
+Smaller negative contribution.
+
+Preferred or nice-to-have skill missing:
+Small or no penalty.
+
+Confirmed technical skills remain valid even when professional employment
+experience is low.
+
+Projects, internships, and academic work ARE legitimate evidence that
+the candidate knows and has used a technology.
+
+They simply must not be converted into professional employment tenure.
+
+Do not say the candidate ""has no experience"" when the candidate has
+confirmed hands-on skill experience.
+
+Instead distinguish correctly between:
+
+- professional experience
+- skill experience
+
+Example:
+
+Correct:
+
+""Candidate has 1 year of hands-on React experience but only 0.1 years of
+overall professional employment.""
+
+Incorrect:
+
+""Candidate has no React experience.""
+
+Incorrect:
+
+""Candidate has 1 year of professional development experience.""
+
+==================================================
+ROLE ALIGNMENT
+==================================================
+
+Compare the candidate's primary role with the actual job function.
+
+Strong positive examples:
+
+Full-Stack Developer -> Software Developer
+Full-Stack Developer -> .NET Developer
+Backend Developer -> Backend Software Engineer
+
+Partial alignment:
+
+Full-Stack Developer -> Front-End Developer
+
+Weak alignment:
+
+Full-Stack Developer -> QA Automation Engineer
+Full-Stack Developer -> Data Scientist
+
+Role mismatch should matter independently of skill overlap.
+
+Example:
+
+A software developer who knows JavaScript and APIs is not automatically
+a strong QA Automation Engineer match if the job requires:
+
+- test automation ownership
+- Playwright
+- QA methodologies
+- test-case design
+- regression testing
+- release validation
+
+==================================================
+SCORING ORDER
+==================================================
+
+For each job, evaluate in this order:
+
+1. Identify every experience-years statement.
+2. Determine whether each is:
+   - professional
+   - skill-specific
+   - skill-specific professional
+   - preferred
+   - or not numeric.
+3. Apply any legitimate professional-experience constraints.
+4. Evaluate seniority and responsibility level.
+5. Evaluate primary role alignment.
+6. Evaluate required technical skills.
+7. Evaluate skill-specific years where explicitly stated.
+8. Evaluate transferable skills.
+9. Evaluate preferred skills.
+10. Evaluate location.
+11. Evaluate work mode.
+12. Evaluate employment type.
+
+DO NOT begin with a generic experience penalty.
+
+First determine what kind of experience the employer actually requested.
+
+==================================================
+CALIBRATION EXAMPLE 1 — PROFESSIONAL YEARS
+==================================================
 
 Candidate:
 
 role = ""Software Developer""
 experienceLevel = ""Entry""
-professionalYearsOfExperience = approximately 0.1
+professionalYearsOfExperience = 0.1
 
-Technical skills strongly include:
+Skills:
 
-C#
-.NET / ASP.NET Core
-React
-SQL Server
-REST APIs
-Git
-OOP
-API development
+C# = 1
+ASP.NET Core = 1
+React = 1
+SQL Server = 1
+REST APIs = 1
 
 Job:
 
 ""Software Engineer II""
 
-The job strongly matches many of those technologies but explicitly requires:
+Requirements:
 
 ""4-7 years of experience in Information Systems development,
 implementation, and support""
 
-The job also describes advanced responsibilities such as:
+Responsibilities include:
 
-- technical direction,
-- complex projects,
-- production application responsibility,
-- client communication,
-- guidance to other technical team members.
+- technical direction
+- complex projects
+- production systems
+- guidance to team members
+- client communication
 
-CORRECT RESULT:
+This is an OVERALL PROFESSIONAL EXPERIENCE requirement.
 
-This is NOT an 80% match.
+The candidate has:
 
-The strong technology overlap is real and should be acknowledged,
-but the candidate has approximately 0.1 professional years against
-an explicit minimum of 4 years.
+0.1 professional years
 
-The professional-experience requirement wins over the technical match.
+against:
 
-The final score MUST remain below 60 and should normally be around
-the 40-50 range depending on the remaining requirements.
+4 minimum professional years.
 
-The explanation should mention the strong technical alignment while
-clearly identifying the major professional-experience gap.
+Strong technology overlap is real but cannot compensate for that gap.
 
-SENIORITY RULES:
+The result must be below 60.
 
-Determine job seniority using:
+==================================================
+CALIBRATION EXAMPLE 2 — SKILL YEARS
+==================================================
 
-- Explicit title words such as Junior, Mid, Senior, Lead, Principal
-- Explicit required professional years
-- Responsibility level
-- Technical ownership
-- Leadership
-- Architecture responsibility
-- Mentoring
-- Technical direction
-- Independence expected
+Candidate:
 
-Do not rely on the title alone.
+professionalYearsOfExperience = 2
 
-For example:
+Java years = 1
 
-""Software Engineer II"" may not literally say ""Mid"",
-but a requirement of 4-7 professional years plus advanced responsibilities
-is strong evidence that the role is above Entry level.
+Job:
 
-If the job does not specify seniority and does not contain meaningful
-experience or responsibility evidence:
+""Backend Developer""
 
-- Treat job seniority as unspecified.
-- Do not invent a seniority mismatch.
-- Do not penalize the candidate merely for being Entry level.
+Requirement:
 
-EXPERIENCE LEVEL COMPARISON:
+""5+ years of Java experience""
 
-Entry candidate vs Entry job:
-No seniority penalty.
+No separate overall professional-years requirement exists.
 
-Entry candidate vs Mid job:
-Meaningful penalty.
+Evaluate:
 
-Entry candidate vs Senior or Lead job:
-Major penalty.
+Java requirement:
+1 year candidate vs 5 years required.
 
-Mid candidate vs Senior job:
-Moderate penalty depending on professional years and responsibilities.
+This is a major Java-specific gap.
 
-Senior candidate vs Entry job:
-Do not automatically impose a major penalty unless overqualification
-is clearly relevant to the job.
+Do NOT incorrectly say:
 
-Explicit required years take priority over these general seniority rules.
+""Candidate lacks 5 years of professional employment.""
 
-SKILL RULES:
+The correct issue is:
 
-- Exact required candidate skill present:
-  strong positive contribution.
+""Candidate has substantially less Java experience than the 5-year
+technology requirement.""
 
-- Closely related or transferable skill:
-  partial positive contribution.
+==================================================
+CALIBRATION EXAMPLE 3 — NO YEARS REQUIREMENT
+==================================================
 
-- Missing required technology:
-  negative contribution based on importance.
+Candidate:
 
-- Missing one technology must not destroy an otherwise reasonable match.
+experienceLevel = ""Entry""
+professionalYearsOfExperience = 0.1
 
-- Confirmed skills remain valid even when their skill years are low.
+Skills:
 
-However:
+C# = 1
+ASP.NET Core = 1
+React = 1
+SQL Server = 1
+REST APIs = 1
 
-SKILL MATCH QUALITY MUST NEVER CANCEL A MAJOR EXPLICIT
-PROFESSIONAL-EXPERIENCE MISMATCH.
+Job requirements:
 
-SCORING ORDER:
+- ASP.NET Core
+- C#
+- SQL Server
+- REST APIs
+- React
+- Git
 
-Evaluate every job in this order:
+No professional minimum years stated.
+No skill-specific minimum years stated.
+No clear Senior or Lead responsibilities.
 
-1. Explicit minimum professional years
-2. Professional seniority / responsibility level
-3. Primary role alignment
-4. Required technical skills
-5. Important transferable skills
-6. Location
-7. Work mode
-8. Employment type
+This should be evaluated primarily as a TECHNICAL and ROLE match.
 
-The first two items are gating factors when the job explicitly requires them.
+Do NOT create a professional-experience penalty simply because the candidate
+only has 0.1 professional years.
 
-Do not start from the technical skill percentage and then apply only
-a small experience deduction.
+A strong score may be appropriate.
 
-Instead, establish the candidate's realistic eligible score range from
-professional experience and seniority FIRST.
+==================================================
+CALIBRATION EXAMPLE 4 — SKILL-SPECIFIC PROFESSIONAL YEARS
+==================================================
 
-Then evaluate technical skills inside that range.
+Candidate:
 
-SEARCH PREFERENCES:
+professionalYearsOfExperience = 0.1
+React years = 1
+
+Job:
+
+""Senior Front-End Engineer""
+
+Requirement:
+
+""5+ years of professional React development experience""
+
+This is not merely a React-knowledge requirement.
+
+It specifically requires professional React experience.
+
+The candidate's project-based or academic React exposure cannot satisfy
+5 years of professional React development.
+
+Apply a major penalty.
+
+==================================================
+SEARCH PREFERENCES
+==================================================
 
 Search preferences describe what the user searched for.
 
-They do NOT prove that the candidate qualifies for the job.
+They do NOT prove qualification.
 
-Do not raise a score merely because the job matches the user's searched role,
-location, work mode, or employment type.
+Do not raise the score merely because the job matches:
 
-LOCATION AND MODE:
+- searched role
+- searched location
+- searched employment type
+- searched work mode
 
-- Do not penalize geographic location for Remote jobs unless the job clearly
-  contains a geographic eligibility restriction.
-- Respect explicit work mode and employment type requirements.
+Qualification must come from candidate data and job requirements.
 
-GENERAL RULES:
+==================================================
+LOCATION AND WORK MODE
+==================================================
+
+Do not penalize geographic location for Remote jobs unless the job explicitly
+contains a geographic, residency, work-authorization, or timezone restriction.
+
+Respect explicit:
+
+- location restrictions
+- work authorization
+- remote eligibility
+- on-site requirements
+- hybrid requirements
+- employment type
+
+Do not invent restrictions.
+
+==================================================
+MATCH EXPLANATION RULES
+==================================================
+
+The explanation must help a normal user understand WHY the score was given.
+
+Do NOT produce vague explanations such as:
+
+""Experience gap.""
+
+""Good skills but lacks experience.""
+
+""Candidate is not senior enough.""
+
+Instead explain the strongest positives AND the most important limitations.
+
+Whenever relevant, include actual numbers.
+
+Good example:
+
+""Strong alignment in ASP.NET Core, C#, SQL Server, and APIs. The role requires
+1-2 years of professional application-development experience, while the
+candidate has 0.1 years, so the experience gap meaningfully limits the score.""
+
+Good skill-specific example:
+
+""Strong backend alignment and confirmed Java experience, but the role requires
+5+ years with Java while the candidate has about 1 year of hands-on Java
+experience.""
+
+Good no-years example:
+
+""Strong alignment with C#, ASP.NET Core, React, SQL Server, and REST APIs.
+The role states no minimum professional experience, so the score is driven
+mainly by technical and role fit.""
+
+Good role-mismatch example:
+
+""The candidate has useful API, SQL, and JavaScript skills, but this is primarily
+a QA automation role requiring Playwright and dedicated testing experience,
+which are not demonstrated.""
+
+The explanation should normally mention:
+
+- strongest matching qualifications
+- the main reason the score is not higher
+- required vs candidate years when numeric years materially affect the score
+- whether the gap is professional or skill-specific
+
+Never say:
+
+""no experience""
+
+when the candidate has skill or project experience.
+
+Instead say specifically:
+
+""limited professional experience""
+
+or
+
+""does not meet the required Java years""
+
+depending on the actual requirement.
+
+==================================================
+RECOMMENDATION RULES
+==================================================
+
+The recommendation should be practical and directly related to the match.
+
+Examples:
+
+""Consider applying; technical alignment is strong despite the modest experience gap.""
+
+""Prioritize junior .NET roles without multi-year professional requirements.""
+
+""Build Playwright and QA automation experience before targeting similar roles.""
+
+""Target Java roles requiring fewer years of hands-on Java experience.""
+
+Avoid generic statements that do not help the user.
+
+==================================================
+GENERAL SCORING RULES
+==================================================
 
 - Score from 0 to 100.
 - Score every job independently.
 - Use only supplied candidate information.
-- Never invent candidate professional experience.
 - Never invent candidate employment.
-- Never invent qualifications.
+- Never invent professional years.
+- Never invent skill years.
 - Never invent job requirements.
-- Never assume missing professional years.
-- Be realistic and consistent.
-- Do not give a score of 0 merely because the candidate misses required years
-  when meaningful role and skill alignment still exists.
-- A substantial years mismatch should lower the score strongly, not erase
-  genuine technical compatibility.
+- Never invent seniority.
+- Never convert preferred qualifications into mandatory requirements.
+- Never treat all experience wording as professional experience automatically.
+- Never treat project skill years as professional employment years.
+- Do not give 0 simply because a requirement is missed when meaningful
+  compatibility still exists.
+- Do not over-reward technical overlap when a major mandatory professional
+  requirement is clearly missed.
+- Do not over-penalize low professional tenure when the job never required it.
+- Be realistic, proportional, and internally consistent.
+- Score caps are ceilings, never target values.
+- Use the full 0-100 range rather than clustering results at 40, 45, or 50.
 
-OUTPUT RULES:
+==================================================
+OUTPUT RULES
+==================================================
 
 - Return exactly one result for every supplied job id.
-- Copy id into jobId unchanged.
+- Copy each supplied id into jobId unchanged.
 - matchScore must be an integer from 0 to 100.
-- matchExplanation: maximum 18 words.
-- recommendation: maximum 14 words.
+- matchExplanation should normally be 25-50 words.
+- matchExplanation must not exceed 60 words.
+- recommendation should normally be 8-18 words.
+- recommendation must not exceed 22 words.
+- Use clear user-friendly language.
+- Include specific numeric experience gaps when they materially affect scoring.
+- Clearly distinguish professional-years gaps from skill-years gaps.
 - No markdown.
-- No analysis.
+- No analysis outside the JSON.
 - No commentary.
 - No extra properties.
 - Produce the JSON immediately.

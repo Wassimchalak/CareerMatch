@@ -1136,7 +1136,7 @@ const handleToggleJobDescription = (jobId: number) => {
                     .filter(
                         (job) =>
                             job.matchScore !== null &&
-                            job.matchScore >= 60
+                            job.matchScore >= 50
                     )
                     .sort(
                         (firstJob, secondJob) =>
@@ -2646,7 +2646,7 @@ groupHeading: (base) => ({
 
             <p>
                 We analyzed every job from your search, but none reached the
-                required <strong>60% match score</strong>.
+                required <strong>50% match score</strong>.
             </p>
 
             <p className="no-matches-suggestion">
