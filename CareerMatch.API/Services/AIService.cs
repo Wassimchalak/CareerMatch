@@ -636,7 +636,7 @@ JOB:
 string prompt = $@"
 Match one candidate against every supplied job independently, consistently, and fairly.
 
-You must evaluate what the employer ACTUALLY requires.
+Evaluate only what the employer ACTUALLY requires.
 
 Do not automatically treat every mention of ""experience"" or ""years""
 as total professional employment experience.
@@ -650,7 +650,7 @@ Return JSON only in this exact format:
     {{
       ""jobId"": 123,
       ""matchScore"": 85,
-      ""matchExplanation"": ""Strong ASP.NET Core, C#, SQL Server, API, and backend alignment. The candidate meets most technical requirements, while the main limitation is limited exposure to the reporting tools requested by the employer."",
+      ""matchExplanation"": ""Strong ASP.NET Core, C#, SQL Server, API, and backend alignment. The main limitation is limited exposure to the reporting tools requested by the employer."",
       ""recommendation"": ""Apply and emphasize backend, API, SQL Server, and ASP.NET Core experience.""
     }}
   ]
@@ -678,8 +678,8 @@ This represents actual relevant professional work experience.
 It may include legitimate:
 
 - employment
-- paid internships
 - professional internships
+- paid internships
 - contracts
 - freelance work
 - client work
@@ -745,7 +745,7 @@ It does NOT mean the candidate has 1 year of professional software
 engineering employment.
 
 ==================================================
-2. FIRST CLASSIFY EVERY EXPERIENCE REQUIREMENT
+2. CLASSIFY EVERY EXPERIENCE REQUIREMENT FIRST
 ==================================================
 
 Before using experience in scoring, inspect every job statement mentioning:
@@ -756,7 +756,7 @@ Before using experience in scoring, inspect every job statement mentioning:
 - professional background
 - technology experience
 
-Classify each relevant statement into ONE of these categories:
+Classify each relevant statement into one of these categories:
 
 A. Overall professional experience
 B. Skill-specific experience
@@ -814,9 +814,9 @@ API
 SQL Server
 Reporting tools
 
-This should normally mean:
+Interpret this normally as:
 
-minimum professional/relevant work experience = 1 year
+minimum relevant professional/work experience = 1 year
 
 It does NOT mean:
 
@@ -848,7 +848,7 @@ Examples:
 
 ""2+ years of Playwright experience""
 
-These should primarily be compared with:
+Compare these primarily with:
 
 candidate.skills[].years
 
@@ -875,8 +875,6 @@ The candidate has a significant Java-specific experience gap.
 Do NOT incorrectly state:
 
 ""Candidate lacks 5 years of overall professional experience.""
-
-The requirement is Java-specific.
 
 ==================================================
 2C. SKILL-SPECIFIC PROFESSIONAL EXPERIENCE
@@ -910,19 +908,6 @@ Evaluate BOTH:
 Project or academic experience alone must not be treated as equivalent
 to several years of professional production use.
 
-Example:
-
-Candidate:
-
-professionalYearsOfExperience = 0.1
-React years = 1
-
-Job:
-
-""5+ years of professional React development""
-
-The candidate does NOT meet this requirement.
-
 ==================================================
 2D. PREFERRED EXPERIENCE
 ==================================================
@@ -953,7 +938,7 @@ Preferred examples:
 
 ""2 years would be advantageous""
 
-A preferred-years requirement may reduce the score when missing,
+A preferred-years requirement may reduce the score moderately when missing,
 but MUST NOT trigger the same penalties or hard caps as a mandatory minimum.
 
 Never convert:
@@ -994,13 +979,13 @@ of professional experience:
 
 The absence of a professional-years requirement is NEUTRAL.
 
-Use the requirements that ACTUALLY exist.
+Use only the requirements that ACTUALLY exist.
 
 For these jobs, scoring should be driven mainly by:
 
 - primary role alignment
 - required technical skills
-- specific skill experience
+- skill-specific experience
 - transferable skills
 - responsibilities
 - demonstrated hands-on ability
@@ -1013,7 +998,7 @@ For these jobs, scoring should be driven mainly by:
 IMPORTANT:
 
 Do NOT mention the absence of a professional-years requirement in the
-match explanation as if it increased or decreased the score.
+matchExplanation.
 
 ==================================================
 3. PROFESSIONAL EXPERIENCE ACTIVATION RULE
@@ -1050,10 +1035,9 @@ Do NOT:
 
 - add points because professional experience was not required
 - subtract points because professional experience is low
-- mention professional experience in the explanation unless it actually
-  affected the score
+- mention professional experience in the explanation
 
-Simply exclude it from scoring for that job.
+Simply exclude professionalYearsOfExperience from scoring for that job.
 
 ==================================================
 4. PARSE NUMERIC YEAR REQUIREMENTS
@@ -1093,7 +1077,7 @@ means:
 - minimum 3 years overall professional software development
 - minimum 2 years React-specific experience
 
-Do NOT merge these into one requirement.
+Do NOT merge unrelated requirements.
 
 ==================================================
 5. REQUIRED PROFESSIONAL EXPERIENCE RULES
@@ -1234,21 +1218,20 @@ Do NOT repeatedly assign:
 45
 50
 
-just because those numbers appear in rules.
+just because those numbers appear in the rules.
 
 Use the full 0-100 range naturally.
 
-After identifying a score ceiling, calculate the actual score underneath
-that ceiling based on:
+After determining a ceiling, calculate the real score underneath it based on:
 
-- severity of the professional-experience gap
+- severity of professional-experience gap
 - seniority mismatch
 - role alignment
 - technical skill coverage
 - missing critical skills
 - skill-specific experience gaps
 - responsibility alignment
-- location/work restrictions
+- location or work restrictions
 
 A candidate with:
 
@@ -1283,16 +1266,18 @@ Job:
 
 ""5+ years Java experience""
 
-The candidate has:
+Result:
 
-1 year vs 5 required.
+1 year candidate
+vs
+5 years required
 
 This is a major Java-specific experience gap.
 
-Do NOT automatically turn it into a total professional-years gap.
+Do NOT automatically convert it into a total professional-years gap.
 
 --------------------------------------------------
-Core technology
+Core mandatory technology
 --------------------------------------------------
 
 If the skill is central and mandatory:
@@ -1338,8 +1323,8 @@ Likewise:
 
 ""React, Angular, or Vue""
 
-means one relevant framework may be enough unless the description clearly
-requires several.
+means one relevant framework may be sufficient unless the description
+clearly requires several.
 
 ==================================================
 10. JOB SENIORITY ANALYSIS
@@ -1372,10 +1357,9 @@ Also consider:
 - independence
 - strategic responsibility
 
-Do NOT rely on the title alone.
+Do NOT rely on title alone.
 
-Also do NOT assume a role is senior simply because the description sounds
-technical.
+Do NOT assume a role is senior merely because its description sounds technical.
 
 Most software jobs contain technical responsibilities.
 
@@ -1396,6 +1380,8 @@ then:
 treat seniority as unspecified.
 
 Do NOT penalize the candidate merely for being Entry level.
+
+Do NOT mention that no seniority penalty was applied.
 
 ==================================================
 11. SENIORITY COMPARISON
@@ -1446,12 +1432,12 @@ Full-Stack Developer
 Backend Developer
 -> Backend Software Engineer
 
-Partial alignment example:
+Partial alignment:
 
 Full-Stack Developer
 -> Front-End Developer
 
-Weak alignment examples:
+Weak alignment:
 
 Full-Stack Developer
 -> QA Automation Engineer
@@ -1497,21 +1483,22 @@ Exact required skill present
 Strong positive contribution.
 
 --------------------------------------------------
-Closely related / transferable skill
+Closely related or transferable skill
 --------------------------------------------------
 
 Partial positive contribution.
 
-Examples may include:
+Examples:
 
-C# / .NET
-ASP.NET / ASP.NET Core
+C# <-> .NET
 
-relational SQL experience across different database platforms
+ASP.NET <-> ASP.NET Core
+
+relational SQL experience across related database platforms
 
 similar REST API frameworks
 
-similar object-oriented languages
+related object-oriented languages
 
 Use transferability reasonably.
 
@@ -1532,7 +1519,7 @@ Missing secondary technology
 Smaller negative contribution.
 
 --------------------------------------------------
-Missing preferred / nice-to-have skill
+Missing preferred or nice-to-have skill
 --------------------------------------------------
 
 Small or no penalty.
@@ -1569,7 +1556,7 @@ Correct:
 
 ""Candidate has meaningful hands-on React experience.""
 
-Also correct:
+Also correct when relevant:
 
 ""Candidate has approximately 0.1 years of professional experience.""
 
@@ -1650,7 +1637,8 @@ Do NOT increase the score merely because:
 
 the employer did not state professional years.
 
-The absence of the requirement is neutral.
+Do NOT mention either fact in the explanation unless professional experience
+actually affected scoring.
 
 ==================================================
 16. RESPONSIBILITY ALIGNMENT
@@ -1681,7 +1669,7 @@ Job requires architecture ownership
 Candidate has only junior project experience
 
 Job requires QA strategy ownership
-Candidate profile is application development focused
+Candidate profile is application-development focused
 
 Responsibilities should affect the score proportionally.
 
@@ -1705,7 +1693,7 @@ Do not heavily penalize education if the employer explicitly allows:
 
 ""degree or equivalent practical experience""
 
-and the candidate demonstrates the equivalent practical qualification.
+and the candidate demonstrates equivalent practical qualification.
 
 ==================================================
 18. LOCATION AND WORK MODE
@@ -1721,7 +1709,7 @@ Do NOT penalize candidate location unless the job contains a clear:
 - residency restriction
 - work-authorization requirement
 - timezone requirement
-- regional requirement
+- regional restriction
 
 ""Remote""
 
@@ -1733,7 +1721,7 @@ but also does NOT automatically mean:
 
 ""candidate must live in the listed country.""
 
-Use only the restrictions actually stated.
+Use only restrictions actually stated.
 
 For On-site jobs:
 
@@ -1741,10 +1729,11 @@ location compatibility may matter.
 
 For Hybrid jobs:
 
-location compatibility may matter because physical attendance may be
-required.
+location compatibility may matter because physical attendance may be required.
 
 Do not invent location eligibility.
+
+Do NOT mention location if it did not materially affect the score.
 
 ==================================================
 19. WORK AUTHORIZATION
@@ -1757,13 +1746,13 @@ If the job explicitly states:
 - residency required
 - citizenship required
 
-then consider that restriction ONLY if supplied candidate data actually
-contains enough information to determine compatibility.
+consider that restriction ONLY if supplied candidate data contains enough
+information to determine compatibility.
 
 Do NOT infer citizenship, visa status, or work authorization from location
 alone.
 
-If candidate work authorization is unknown:
+If work authorization is unknown:
 
 do not invent a mismatch.
 
@@ -1779,6 +1768,8 @@ Consider explicit:
 - Internship
 
 but do not allow employment type to outweigh core qualification factors.
+
+Do NOT mention employment type if it did not materially affect the score.
 
 ==================================================
 21. SEARCH PREFERENCES
@@ -1796,8 +1787,6 @@ Do not increase the score merely because the job matches:
 - searched work mode
 - searched employment type
 
-Use preferences mainly for compatibility/context.
-
 Candidate qualification comes from:
 
 candidate data + job requirements.
@@ -1806,7 +1795,7 @@ candidate data + job requirements.
 22. REQUIRED SCORING ORDER
 ==================================================
 
-For EVERY job, perform the reasoning internally in this exact order:
+For EVERY job, perform the internal evaluation in this exact order:
 
 STEP 1:
 Identify all statements about experience and years.
@@ -1868,10 +1857,10 @@ STEP 15:
 Determine any applicable score ceiling.
 
 STEP 16:
-Calculate the actual score UNDER the ceiling.
+Calculate the actual score UNDER that ceiling.
 
 STEP 17:
-Generate a detailed explanation using only factors that actually affected
+Generate the explanation using ONLY factors that materially affected
 the score.
 
 ==================================================
@@ -1888,7 +1877,7 @@ If professional experience is not activated:
 
 do NOT use it in the score.
 
-For such jobs:
+For those jobs:
 
 role and technical alignment should carry most of the qualification weight.
 
@@ -2022,7 +2011,6 @@ Requirements:
 - development frameworks
 - databases and SQL
 - Git
-- clean maintainable code
 - debugging
 - Agile preferred
 
@@ -2032,21 +2020,31 @@ Professional experience activation:
 
 NO
 
-Correct scoring approach:
+Correct internal scoring approach:
 
 evaluate:
 
-- Java alignment
-- backend framework alignment
-- databases
-- SQL
+- Java
+- Spring Boot
+- SQL/databases
 - Git
-- software-development responsibilities
+- backend responsibilities
+- debugging
 - Agile exposure
 
-Do NOT use 0.1 professional years as a penalty.
+Do NOT use professionalYearsOfExperience as a penalty.
 
-Do NOT mention the missing professional-years requirement in the explanation.
+IMPORTANT:
+
+The user-facing explanation must NOT say:
+
+""No professional experience requirement was stated.""
+
+or:
+
+""Candidate's Entry level was not penalized.""
+
+Those are internal decisions only.
 
 ==================================================
 27. CALIBRATION EXAMPLE — SKILL-SPECIFIC PROFESSIONAL YEARS
@@ -2150,8 +2148,6 @@ Python, Java, or JavaScript""
 Candidate:
 
 Java = confirmed
-Python = confirmed or partial
-JavaScript = not important
 
 The requirement is satisfied through Java.
 
@@ -2163,11 +2159,13 @@ Do NOT penalize the candidate for not matching every language listed.
 
 matchExplanation must help a normal user understand WHY the score was given.
 
-Mention:
+Explain only factors that ACTUALLY affected the score.
 
-1. strongest matching factors
-2. most important limiting factors
-3. actual numeric experience comparison when it materially affected scoring
+Normally mention:
+
+1. strongest factors that raised the score
+2. most important factors that lowered the score
+3. numeric experience differences when they materially affected scoring
 4. whether an experience gap is professional or skill-specific
 
 Do NOT produce vague explanations such as:
@@ -2183,7 +2181,7 @@ Do NOT produce vague explanations such as:
 Give specific reasons.
 
 --------------------------------------------------
-GOOD — professional experience
+GOOD — professional experience affected score
 --------------------------------------------------
 
 ""Strong ASP.NET Core, C#, API, and SQL Server alignment. The role requires
@@ -2192,7 +2190,7 @@ while the candidate has 0.1 years, making professional tenure the main
 factor limiting the score.""
 
 --------------------------------------------------
-GOOD — skill-specific years
+GOOD — skill-specific experience affected score
 --------------------------------------------------
 
 ""The candidate has hands-on Java experience and strong backend fundamentals,
@@ -2200,12 +2198,12 @@ but the role requires 5+ years specifically with Java while the candidate
 has about 1 year, creating a significant technology-experience gap.""
 
 --------------------------------------------------
-GOOD — no professional-years requirement
+GOOD — professional experience did NOT affect score
 --------------------------------------------------
 
 ""Strong backend alignment through Java, Spring Boot, SQL databases,
 REST APIs, and Git. Core programming, framework, database, and version-control
-requirements align well, while broader Agile and production-scale experience
+requirements align well, while broader production-scale and Agile experience
 are less clearly demonstrated.""
 
 --------------------------------------------------
@@ -2216,107 +2214,134 @@ GOOD — role mismatch
 experience, but this position centers on QA automation and requires Playwright,
 test-framework design, regression testing, and dedicated QA experience that
 are not demonstrated.""
+
 ==================================================
-EXPLANATION VISIBILITY RULE
+31. EXPLANATION VISIBILITY RULE
 ==================================================
 
 Only mention a factor in matchExplanation if that factor materially affected
 the final score.
 
-Do NOT mention neutral conditions.
+Internal scoring decisions must remain internal.
 
-In particular, NEVER mention statements such as:
+NEVER mention statements such as:
 
-- "No minimum professional experience was stated."
-- "No professional experience requirement was activated."
-- "No stated minimum professional experience."
-- "Candidate's junior status was not penalized."
-- "Candidate's seniority level was not penalized."
-- "No seniority penalty was applied."
-- "Professional experience was not used as a scoring factor."
-- "The role does not state a minimum professional experience requirement."
+- ""No minimum professional experience was stated.""
+- ""No professional experience requirement was activated.""
+- ""No stated minimum professional experience.""
+- ""Candidate's junior status was not penalized.""
+- ""Candidate's seniority level was not penalized.""
+- ""No seniority penalty was applied.""
+- ""Professional experience was not used as a scoring factor.""
+- ""The role does not state a minimum professional experience requirement.""
+- ""No location penalty was applied.""
+- ""No work-mode mismatch exists.""
+- ""No employment-type penalty was applied.""
 
 These are internal scoring decisions only.
 
 If professional experience did NOT affect the score:
-- do not mention professional experience.
+
+DO NOT mention professional experience.
 
 If seniority did NOT affect the score:
-- do not mention seniority.
+
+DO NOT mention seniority.
 
 If location did NOT affect the score:
-- do not mention location.
+
+DO NOT mention location.
 
 If work mode did NOT affect the score:
-- do not mention work mode.
+
+DO NOT mention work mode.
 
 If employment type did NOT affect the score:
-- do not mention employment type.
 
-Only explain factors that actually raised or lowered the score.
+DO NOT mention employment type.
 
-Example:
+Only explain:
+
+- factors that materially increased the score
+- factors that materially decreased the score
+
+==================================================
+32. ABSENT OR NEUTRAL FACTORS ARE NOT EXPLANATIONS
+==================================================
+
+Do NOT explain a score using something the employer did NOT require.
 
 BAD:
 
-"Strong Java and SQL alignment. No minimum professional experience was stated,
-so the candidate's Entry status was not penalized."
-
-GOOD:
-
-"Strong backend alignment through Java, Spring Boot, SQL databases, REST APIs,
-and Git. The main gaps are limited evidence of production-scale systems and
-some of the broader framework requirements."
+""Strong Java and SQL alignment, with no minimum professional experience
+requirement.""
 
 BAD:
 
-"No stated minimum professional experience activates candidate's seniority
-level without penalty."
+""No professional minimum was stated, so the Entry candidate was not penalized.""
+
+BAD:
+
+""No seniority requirement was found.""
+
+BAD:
+
+""The role is remote so location did not reduce the score.""
 
 GOOD:
 
-"Strong alignment with the required programming, database, Git, and backend
-development skills."
+""Strong Java, Spring Boot, SQL, API, and Git alignment supports the backend
+role. The main gap is limited evidence of large-scale production-system
+experience.""
 
-The explanation must describe actual strengths and actual weaknesses,
-not internal decisions about which penalties were NOT applied.
+GOOD:
+
+""Strong C#, ASP.NET Core, SQL Server, and API alignment. Reporting-tool
+experience is less clearly demonstrated and slightly reduces the match.""
+
+The absence of a requirement is NEUTRAL.
+
+Never expose neutral or non-penalty decisions to the user.
 
 ==================================================
-ABSENT OR NEUTRAL FACTORS MUST NOT APPEAR IN EXPLANATIONS
+33. NEVER MISREPRESENT EXPERIENCE
 ==================================================
 
-Do not mention something merely because it was checked during scoring.
+If the candidate has:
 
-Only mention it if it materially affected the final score.
+professionalYearsOfExperience = 0.1
 
-The absence of a requirement is NEUTRAL and must not appear in the explanation.
+do NOT say:
 
-Do NOT say:
+""no professional experience""
 
-"No professional minimum was stated."
+When relevant, say:
 
-"No seniority penalty applies."
+""approximately 0.1 years of professional experience""
 
-"Entry level was not penalized."
+or:
 
-"No location restriction was found."
+""limited professional experience""
 
-"No work-mode mismatch exists."
+If the candidate has:
 
-These may be used internally when calculating the score,
-but they must not be shown to the user.
+Java years = 1
 
-matchExplanation should contain only:
+do NOT say:
 
-1. important factors that increased the score
-2. important factors that decreased the score
+""no Java experience""
 
-Nothing else.
+When relevant, say:
+
+""approximately 1 year of hands-on Java experience""
+
+Use candidate data accurately.
+
 ==================================================
-33. RECOMMENDATION RULES
+34. RECOMMENDATION RULES
 ==================================================
 
-The recommendation should be practical and directly related to the score.
+The recommendation should be practical and directly related to the match.
 
 Examples:
 
@@ -2328,7 +2353,7 @@ Examples:
 
 ""Target Java roles requiring fewer years of hands-on Java experience.""
 
-""Consider applying; technical alignment is strong despite the modest experience gap.""
+""Consider applying and highlight the strongest matching backend technologies.""
 
 Avoid generic recommendations such as:
 
@@ -2337,7 +2362,7 @@ Avoid generic recommendations such as:
 when a more useful recommendation can be given.
 
 ==================================================
-34. GENERAL SCORING RULES
+35. GENERAL SCORING RULES
 ==================================================
 
 - Score from 0 to 100.
@@ -2357,6 +2382,9 @@ when a more useful recommendation can be given.
 - Never treat skill years as professional employment years.
 - Never treat the absence of a requirement as a positive factor.
 - Never treat the absence of a requirement as a negative factor.
+- Never mention neutral factors in matchExplanation.
+- Never mention non-penalties in matchExplanation.
+- Never mention internal activation decisions in matchExplanation.
 - Never heavily penalize low professional tenure when professional experience
   is not activated.
 - Never allow technical overlap to erase a major mandatory professional
@@ -2370,7 +2398,7 @@ when a more useful recommendation can be given.
 - Be internally consistent.
 
 ==================================================
-35. OUTPUT RULES
+36. OUTPUT RULES
 ==================================================
 
 Return exactly ONE result for EVERY supplied job id.
@@ -2389,11 +2417,14 @@ matchExplanation:
 
 - normally 30-55 words
 - maximum 65 words
-- detailed enough for the user to understand the score
+- explain the real reasons for the score
 - mention concrete matching skills where useful
-- mention numeric experience gaps when they actually affect scoring
+- mention numeric experience gaps ONLY when they materially affected the score
 - distinguish professional experience from skill-specific experience
-- do NOT mention absent requirements as scoring factors
+- NEVER mention absent requirements
+- NEVER mention that a penalty was not applied
+- NEVER mention internal activation logic
+- NEVER mention neutral factors
 
 recommendation:
 
