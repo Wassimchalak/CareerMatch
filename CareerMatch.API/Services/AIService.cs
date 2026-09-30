@@ -566,7 +566,7 @@ JOB:
                    ?? new AIJobAnalysisResult();
         }
 
-        public async Task<List<AIMatchResult>>
+      
        public async Task<List<AIMatchResult>>
     GenerateJobMatchesAsync(
         string cvPrimaryRole,
