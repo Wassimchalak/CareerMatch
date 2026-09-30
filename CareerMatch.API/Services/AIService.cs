@@ -2216,77 +2216,102 @@ GOOD — role mismatch
 experience, but this position centers on QA automation and requires Playwright,
 test-framework design, regression testing, and dedicated QA experience that
 are not demonstrated.""
-
 ==================================================
-31. ABSENT REQUIREMENTS MUST NOT APPEAR AS FACTORS
+EXPLANATION VISIBILITY RULE
 ==================================================
 
-Do NOT explain a score using something the employer did NOT require.
+Only mention a factor in matchExplanation if that factor materially affected
+the final score.
+
+Do NOT mention neutral conditions.
+
+In particular, NEVER mention statements such as:
+
+- "No minimum professional experience was stated."
+- "No professional experience requirement was activated."
+- "No stated minimum professional experience."
+- "Candidate's junior status was not penalized."
+- "Candidate's seniority level was not penalized."
+- "No seniority penalty was applied."
+- "Professional experience was not used as a scoring factor."
+- "The role does not state a minimum professional experience requirement."
+
+These are internal scoring decisions only.
+
+If professional experience did NOT affect the score:
+- do not mention professional experience.
+
+If seniority did NOT affect the score:
+- do not mention seniority.
+
+If location did NOT affect the score:
+- do not mention location.
+
+If work mode did NOT affect the score:
+- do not mention work mode.
+
+If employment type did NOT affect the score:
+- do not mention employment type.
+
+Only explain factors that actually raised or lowered the score.
+
+Example:
 
 BAD:
 
-""No professional experience minimum was stated, so the candidate scores well.""
-
-BAD:
-
-""No explicit professional-years requirement exists.""
-
-BAD:
-
-""The role does not require professional experience.""
-
-The absence of a requirement is neutral.
-
-Instead explain the ACTUAL positive and negative factors.
-
-BAD:
-
-""Candidate matches Java and SQL, and no professional minimum was stated.""
+"Strong Java and SQL alignment. No minimum professional experience was stated,
+so the candidate's Entry status was not penalized."
 
 GOOD:
 
-""Strong Java, Spring Boot, SQL, database, API, and Git alignment supports
-the backend role. The main remaining gaps involve requirements not clearly
-demonstrated in the candidate profile.""
+"Strong backend alignment through Java, Spring Boot, SQL databases, REST APIs,
+and Git. The main gaps are limited evidence of production-scale systems and
+some of the broader framework requirements."
+
+BAD:
+
+"No stated minimum professional experience activates candidate's seniority
+level without penalty."
+
+GOOD:
+
+"Strong alignment with the required programming, database, Git, and backend
+development skills."
+
+The explanation must describe actual strengths and actual weaknesses,
+not internal decisions about which penalties were NOT applied.
 
 ==================================================
-32. NEVER MISREPRESENT EXPERIENCE
+ABSENT OR NEUTRAL FACTORS MUST NOT APPEAR IN EXPLANATIONS
 ==================================================
 
-If the candidate has:
+Do not mention something merely because it was checked during scoring.
 
-professionalYearsOfExperience = 0.1
+Only mention it if it materially affected the final score.
 
-do NOT say:
+The absence of a requirement is NEUTRAL and must not appear in the explanation.
 
-""no professional experience""
+Do NOT say:
 
-Say:
+"No professional minimum was stated."
 
-""approximately 0.1 years of professional experience""
+"No seniority penalty applies."
 
-or:
+"Entry level was not penalized."
 
-""limited professional experience""
+"No location restriction was found."
 
-when relevant.
+"No work-mode mismatch exists."
 
-If the candidate has:
+These may be used internally when calculating the score,
+but they must not be shown to the user.
 
-Java years = 1
+matchExplanation should contain only:
 
-do NOT say:
+1. important factors that increased the score
+2. important factors that decreased the score
 
-""no Java experience""
-
-Say:
-
-""approximately 1 year of hands-on Java experience""
-
-when relevant.
-
-Use candidate data accurately.
-
+Nothing else.
 ==================================================
 33. RECOMMENDATION RULES
 ==================================================
