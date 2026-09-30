@@ -18,302 +18,388 @@ namespace CareerMatch.API.Services
             _aiService = aiService;
         }
 
-        public async Task<Dictionary<int, AIMatchResult>>
-            CalculateAndSaveMatchesAsync(
-                int userId,
-                IReadOnlyCollection<Job> jobs,
-                JobSearchRequest request,
-                bool forceRefresh = false)
+       public async Task<Dictionary<int, AIMatchResult>>
+    CalculateAndSaveMatchesAsync(
+        int userId,
+        IReadOnlyCollection<Job> jobs,
+        JobSearchRequest request,
+        bool forceRefresh = false)
+{
+    var result =
+        new Dictionary<int, AIMatchResult>();
+
+    if (jobs.Count == 0)
+    {
+        return result;
+    }
+
+    using var connection =
+        _dbConnectionFactory.CreateConnection();
+
+    /*
+     * Load the latest CV.
+     *
+     * ExperienceLevel and ProfessionalYearsOfExperience
+     * are now required by the matching AI.
+     */
+    var cv =
+        await connection.QueryFirstOrDefaultAsync<CV>(
+            @"
+            SELECT TOP 1
+                cv.CVId,
+                cv.UserId,
+                cv.PrimaryRole,
+                cv.ExperienceLevel,
+                cv.ProfessionalYearsOfExperience,
+                cv.CVTextHash,
+                cv.UploadedAt
+            FROM CVs cv
+            WHERE cv.UserId = @UserId
+            ORDER BY
+                cv.UploadedAt DESC,
+                cv.CVId DESC;
+            ",
+            new
+            {
+                UserId = userId
+            }
+        );
+
+    if (cv == null)
+    {
+        throw new InvalidOperationException(
+            "Please upload a CV before calculating your match score."
+        );
+    }
+
+    /*
+     * Load the skills extracted from the latest CV.
+     *
+     * YearsOfExperience here means hands-on experience
+     * with the individual skill.
+     *
+     * It is NOT the same as the candidate's total
+     * professional years of experience.
+     */
+    var cvSkills =
+        (
+            await connection.QueryAsync<AIExtractedSkill>(
+                @"
+                SELECT
+                    s.SkillName,
+                    ecvs.YearsOfExperience
+                FROM ExtractedCVSkills ecvs
+                INNER JOIN Skills s
+                    ON ecvs.SkillId = s.SkillId
+                WHERE ecvs.CVId = @CVId
+                ORDER BY
+                    ecvs.YearsOfExperience DESC,
+                    s.SkillName;
+                ",
+                new
+                {
+                    CVId = cv.CVId
+                }
+            )
+        ).ToList();
+
+    if (cvSkills.Count == 0)
+    {
+        foreach (var job in jobs)
         {
-            var result =
-                new Dictionary<int, AIMatchResult>();
-
-            if (jobs.Count == 0)
-            {
-                return result;
-            }
-
-            using var connection =
-                _dbConnectionFactory.CreateConnection();
-
-            var cv =
-                await connection.QueryFirstOrDefaultAsync<CV>(
-                    @"
-                    SELECT TOP 1
-                        cv.CVId,
-                        cv.UserId,
-                        cv.PrimaryRole,
-                        cv.CVTextHash,
-                        cv.UploadedAt
-                    FROM CVs cv
-                    WHERE cv.UserId = @UserId
-                    ORDER BY
-                        cv.UploadedAt DESC,
-                        cv.CVId DESC;
-                    ",
-                    new
-                    {
-                        UserId = userId
-                    }
-                );
-
-            if (cv == null)
-            {
-                throw new InvalidOperationException(
-                    "Please upload a CV before calculating your match score."
-                );
-            }
-
-            var cvSkills =
-                (
-                    await connection.QueryAsync<AIExtractedSkill>(
-                        @"
-                        SELECT
-                            s.SkillName,
-                            ecvs.YearsOfExperience
-                        FROM ExtractedCVSkills ecvs
-                        INNER JOIN Skills s
-                            ON ecvs.SkillId = s.SkillId
-                        WHERE ecvs.CVId = @CVId
-                        ORDER BY
-                            ecvs.YearsOfExperience DESC,
-                            s.SkillName;
-                        ",
-                        new
-                        {
-                            CVId = cv.CVId
-                        }
-                    )
-                ).ToList();
-
-            if (cvSkills.Count == 0)
-            {
-                foreach (var job in jobs)
+            result[job.JobId] =
+                new AIMatchResult
                 {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore = 0,
-                            MatchExplanation =
-                                "The latest uploaded CV has no extracted skills.",
-                            Recommendation =
-                                "Upload the CV again so its skills can be extracted."
-                        };
-                }
+                    JobId = job.JobId,
 
-                return result;
-            }
+                    MatchScore = 0,
 
-            var jobIds =
-                jobs
-                    .Select(job => job.JobId)
-                    .Distinct()
-                    .ToList();
+                    MatchExplanation =
+                        "The latest uploaded CV has no extracted skills.",
 
-            var cachedMatches =
-                (
-                    await connection.QueryAsync<CachedMatchData>(
-                        @"
-                        SELECT
-                            JobMatchId,
-                            CVId,
-                            JobId,
-                            CVTextHash,
-                            DescriptionHash,
-                            FinalScore,
-                            MatchExplanation,
-                            Recommendation,
-                            CreatedAt
-                        FROM JobMatches
-                        WHERE UserId = @UserId
-                          AND JobId IN @JobIds
-                        ORDER BY CreatedAt DESC;
-                        ",
-                        new
-                        {
-                            UserId = userId,
-                            JobIds = jobIds
-                        }
-                    )
-                ).ToList();
-
-            var cachedMatchesByJobId =
-                cachedMatches
-                    .Where(cachedMatch =>
-                        !string.IsNullOrWhiteSpace(
-                            cv.CVTextHash
-                        )
-                        &&
-                        string.Equals(
-                            cachedMatch.CVTextHash,
-                            cv.CVTextHash,
-                            StringComparison.OrdinalIgnoreCase
-                        )
-                        &&
-                        IsSuccessfulCachedMatch(
-                            cachedMatch
-                        )
-                    )
-                    .GroupBy(cachedMatch =>
-                        cachedMatch.JobId
-                    )
-                    .ToDictionary(
-                        group => group.Key,
-                        group => group.First()
-                    );
-
-            var jobsToMatch =
-                new List<Job>();
-
-            foreach (var job in jobs)
-            {
-                bool validCacheExists =
-                    cachedMatchesByJobId.TryGetValue(
-                        job.JobId,
-                        out var cachedMatch
-                    )
-                    &&
-                    !string.IsNullOrWhiteSpace(
-                        job.DescriptionHash
-                    )
-                    &&
-                    string.Equals(
-                        cachedMatch!.DescriptionHash,
-                        job.DescriptionHash,
-                        StringComparison.OrdinalIgnoreCase
-                    );
-
-                if (
-                    !forceRefresh &&
-                    validCacheExists &&
-                    cachedMatch != null
-                )
-                {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore =
-                                cachedMatch.FinalScore,
-                            MatchExplanation =
-                                cachedMatch.MatchExplanation
-                                ?? string.Empty,
-                            Recommendation =
-                                cachedMatch.Recommendation
-                                ?? string.Empty
-                        };
-                }
-                else
-                {
-                    jobsToMatch.Add(job);
-                }
-            }
-
-            if (jobsToMatch.Count == 0)
-            {
-                return result;
-            }
-
-            List<AIMatchResult> aiMatches;
-
-            try
-            {
-                aiMatches =
-                    await _aiService.GenerateJobMatchesAsync(
-                        cv.PrimaryRole ?? string.Empty,
-                        cvSkills,
-                        request,
-                        jobsToMatch
-                    );
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    $"OPENAI MATCH ERROR: {ex}"
-                );
-
-                aiMatches =
-                    new List<AIMatchResult>();
-            }
-
-            var validJobIds =
-                jobsToMatch
-                    .Select(job => job.JobId)
-                    .ToHashSet();
-
-            var aiMatchesByJobId =
-                aiMatches
-                    .Where(aiMatch =>
-                        validJobIds.Contains(
-                            aiMatch.JobId
-                        )
-                    )
-                    .GroupBy(aiMatch =>
-                        aiMatch.JobId
-                    )
-                    .ToDictionary(
-                        group => group.Key,
-                        group => group.First()
-                    );
-
-            foreach (var job in jobsToMatch)
-            {
-                if (
-                    aiMatchesByJobId.TryGetValue(
-                        job.JobId,
-                        out var aiMatch
-                    )
-                )
-                {
-                    var matchResult =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore =
-                                Math.Clamp(
-                                    aiMatch.MatchScore,
-                                    0,
-                                    100
-                                ),
-                            MatchExplanation =
-                                aiMatch.MatchExplanation
-                                ?? string.Empty,
-                            Recommendation =
-                                aiMatch.Recommendation
-                                ?? string.Empty
-                        };
-
-                    result[job.JobId] =
-                        matchResult;
-
-                    await SaveMatchAsync(
-                        connection,
-                        userId,
-                        cv.CVId,
-                        job.JobId,
-                        cv.CVTextHash,
-                        job.DescriptionHash,
-                        matchResult
-                    );
-                }
-                else
-                {
-                    result[job.JobId] =
-                        new AIMatchResult
-                        {
-                            JobId = job.JobId,
-                            MatchScore = 0,
-                            MatchExplanation =
-                                "Match calculation failed.",
-                            Recommendation =
-                                "Try calculating the match again."
-                        };
-                }
-            }
-
-            return result;
+                    Recommendation =
+                        "Upload the CV again so its skills can be extracted."
+                };
         }
+
+        return result;
+    }
+
+    var jobIds =
+        jobs
+            .Select(job => job.JobId)
+            .Distinct()
+            .ToList();
+
+    /*
+     * Load any previous match results.
+     */
+    var cachedMatches =
+        (
+            await connection.QueryAsync<CachedMatchData>(
+                @"
+                SELECT
+                    JobMatchId,
+                    CVId,
+                    JobId,
+                    CVTextHash,
+                    DescriptionHash,
+                    FinalScore,
+                    MatchExplanation,
+                    Recommendation,
+                    CreatedAt
+                FROM JobMatches
+                WHERE UserId = @UserId
+                  AND JobId IN @JobIds
+                ORDER BY CreatedAt DESC;
+                ",
+                new
+                {
+                    UserId = userId,
+                    JobIds = jobIds
+                }
+            )
+        ).ToList();
+
+    /*
+     * Keep only cached results calculated from the
+     * same CV content and that represent successful
+     * previous calculations.
+     */
+    var cachedMatchesByJobId =
+        cachedMatches
+            .Where(cachedMatch =>
+                !string.IsNullOrWhiteSpace(
+                    cv.CVTextHash
+                )
+                &&
+                string.Equals(
+                    cachedMatch.CVTextHash,
+                    cv.CVTextHash,
+                    StringComparison.OrdinalIgnoreCase
+                )
+                &&
+                IsSuccessfulCachedMatch(
+                    cachedMatch
+                )
+            )
+            .GroupBy(cachedMatch =>
+                cachedMatch.JobId
+            )
+            .ToDictionary(
+                group => group.Key,
+                group => group.First()
+            );
+
+    var jobsToMatch =
+        new List<Job>();
+
+    foreach (var job in jobs)
+    {
+        bool validCacheExists =
+            cachedMatchesByJobId.TryGetValue(
+                job.JobId,
+                out var cachedMatch
+            )
+            &&
+            !string.IsNullOrWhiteSpace(
+                job.DescriptionHash
+            )
+            &&
+            string.Equals(
+                cachedMatch!.DescriptionHash,
+                job.DescriptionHash,
+                StringComparison.OrdinalIgnoreCase
+            );
+
+        /*
+         * Reuse the cached result unless a forced
+         * recalculation was explicitly requested.
+         */
+        if (
+            !forceRefresh &&
+            validCacheExists &&
+            cachedMatch != null
+        )
+        {
+            result[job.JobId] =
+                new AIMatchResult
+                {
+                    JobId =
+                        job.JobId,
+
+                    MatchScore =
+                        cachedMatch.FinalScore,
+
+                    MatchExplanation =
+                        cachedMatch.MatchExplanation
+                        ?? string.Empty,
+
+                    Recommendation =
+                        cachedMatch.Recommendation
+                        ?? string.Empty
+                };
+        }
+        else
+        {
+            jobsToMatch.Add(job);
+        }
+    }
+
+    /*
+     * Every requested job already had a valid cached
+     * result and forceRefresh was not requested.
+     */
+    if (jobsToMatch.Count == 0)
+    {
+        return result;
+    }
+
+    List<AIMatchResult> aiMatches;
+
+    try
+    {
+        /*
+         * Send the complete candidate matching profile:
+         *
+         * - Primary professional role
+         * - Overall experience level
+         * - Actual professional years of experience
+         * - Individual skills and skill experience
+         *
+         * This allows the AI to distinguish:
+         *
+         * ProfessionalYearsOfExperience = 0.1
+         *
+         * from:
+         *
+         * C# = 1
+         * React = 1
+         * SQL Server = 1
+         *
+         * Skill/project experience must not substitute
+         * for required professional employment years.
+         */
+        aiMatches =
+            await _aiService.GenerateJobMatchesAsync(
+                cv.PrimaryRole
+                    ?? string.Empty,
+
+                cv.ExperienceLevel
+                    ?? "Unknown",
+
+                Math.Max(
+                    0m,
+                    cv.ProfessionalYearsOfExperience
+                ),
+
+                cvSkills,
+
+                request,
+
+                jobsToMatch
+            );
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(
+            $"OPENAI MATCH ERROR: {ex}"
+        );
+
+        aiMatches =
+            new List<AIMatchResult>();
+    }
+
+    /*
+     * Only accept AI results for jobs that were
+     * actually submitted for matching.
+     */
+    var validJobIds =
+        jobsToMatch
+            .Select(job => job.JobId)
+            .ToHashSet();
+
+    var aiMatchesByJobId =
+        aiMatches
+            .Where(aiMatch =>
+                validJobIds.Contains(
+                    aiMatch.JobId
+                )
+            )
+            .GroupBy(aiMatch =>
+                aiMatch.JobId
+            )
+            .ToDictionary(
+                group => group.Key,
+                group => group.First()
+            );
+
+    foreach (var job in jobsToMatch)
+    {
+        if (
+            aiMatchesByJobId.TryGetValue(
+                job.JobId,
+                out var aiMatch
+            )
+        )
+        {
+            var matchResult =
+                new AIMatchResult
+                {
+                    JobId =
+                        job.JobId,
+
+                    MatchScore =
+                        Math.Clamp(
+                            aiMatch.MatchScore,
+                            0,
+                            100
+                        ),
+
+                    MatchExplanation =
+                        aiMatch.MatchExplanation
+                        ?? string.Empty,
+
+                    Recommendation =
+                        aiMatch.Recommendation
+                        ?? string.Empty
+                };
+
+            result[job.JobId] =
+                matchResult;
+
+            await SaveMatchAsync(
+                connection,
+                userId,
+                cv.CVId,
+                job.JobId,
+                cv.CVTextHash,
+                job.DescriptionHash,
+                matchResult
+            );
+        }
+        else
+        {
+            result[job.JobId] =
+                new AIMatchResult
+                {
+                    JobId =
+                        job.JobId,
+
+                    MatchScore =
+                        0,
+
+                    MatchExplanation =
+                        "Match calculation failed.",
+
+                    Recommendation =
+                        "Try calculating the match again."
+                };
+        }
+    }
+
+    return result;
+}
 
         private static async Task SaveMatchAsync(
             System.Data.IDbConnection connection,
