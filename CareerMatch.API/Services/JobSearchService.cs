@@ -438,7 +438,7 @@ namespace CareerMatch.API.Services
             // HttpClient's default 100-second timeout. Use a per-request timeout
             // while preserving the application's shared HttpClient configuration.
             using var timeoutCts =
-                new CancellationTokenSource(TimeSpan.FromSeconds(25));
+                new CancellationTokenSource(TimeSpan.FromSeconds(50));
 
             HttpResponseMessage response;
             try
