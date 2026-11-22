@@ -56,7 +56,7 @@ No fabricated SAR, USD, or hours. Planned incremental test cost is constrained b
 
 ## Cost evidence and non-AI planning scenario (forward estimate only)
 
-**Updated 22 November 2026.** The student reported paying for OpenAI API usage and a domain purchase, but did **not** provide historical amounts or a current monthly OpenAI expense. The previous model-generated **$20/month OpenAI allowance was unsupported and has been removed**. Do not present an OpenAI monthly amount until model/token records and actual invoices support it.
+**Updated 22 November 2026.** The student reported paying for OpenAI API usage and a domain purchase, but did **not** provide historical amounts or a current monthly OpenAI expense. The previous model-generated OpenAI monthly allowance was unsupported and has been removed. Do not present an OpenAI monthly amount until model/token records and actual invoices support it.
 
 The following is a **partial, illustrative non-AI scenario**, not a full project spending ceiling, not a payment history, not a vendor quote, and **not an estimate of OpenAI expense**. Current usage on Bebity/Apify is reported as free tier.
 
