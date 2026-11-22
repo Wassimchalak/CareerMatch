@@ -2,45 +2,103 @@
 
 **Updated:** 22 November 2026. Diagram relationships are grounded in the supplied SQL Server schema and the checked controller/service workflow. These source diagrams complement the legible, vector-rendered illustrations in the 30-page academic PDF.
 
-## ER diagram (14-table schema, key relationships)
+## Complete SQL Server ERD (14 tables / 17 declared foreign keys)
+
+The **actual UTF-16 SQL Server DDL dated 20 November 2026** was inspected and all 17 `FOREIGN KEY` constraints enumerated, rather than inferring relationships from similar-sounding table names. The report now presents readable **Figure 3a (page 9)** and **Figure 3b (page 10)** connected views; repeated parent boxes are visual references to the same real table. Every child has a PK as well as its named FK attributes, and cardinalities are shown.
 
 ```mermaid
 erDiagram
-  Users ||--o{ CVs : owns
-  Users ||--o{ JobMatches : receives
-  Users ||--o{ SavedJobs : bookmarks
-  Users ||--o{ JobApplications : records
-  Users ||--o{ PasswordResetTokens : requests
-  CVs ||--o{ ExtractedCVSkills : yields
-  Skills ||--o{ ExtractedCVSkills : categorizes
-  Jobs ||--o{ JobRequiredSkills : requires
-  Skills ||--o{ JobRequiredSkills : defines
-  CVs ||--o{ JobMatches : assessed_for
-  Jobs ||--o{ JobMatches : assessed_for
-  Jobs ||--o{ SavedJobs : bookmarked_as
-  Jobs ||--o{ JobApplications : handed_off_as
-  CVs ||--o{ JobApplications : associated_with
-  JobApplications ||--o{ GeneratedCVs : refines
-  JobApplications ||--o{ GeneratedCoverLetters : drafts
-  JobApplications ||--o{ GeneratedInterviewQuestions : prepares
+  Users ||--o{ CVs : FK_CVs_Users
+  Users ||--o{ PasswordResetTokens : FK_PasswordResetTokens_Users
+  CVs ||--o{ ExtractedCVSkills : FK_ExtractedCVSkills_CVs
+  Skills ||--o{ ExtractedCVSkills : FK_ExtractedCVSkills_Skills
+  Jobs ||--o{ JobRequiredSkills : FK_JobRequiredSkills_Jobs
+  Skills ||--o{ JobRequiredSkills : FK_JobRequiredSkills_Skills
+  Users ||--o{ JobMatches : FK_JobMatches_Users
+  CVs ||--o{ JobMatches : FK_JobMatches_CVs
+  Jobs ||--o{ JobMatches : FK_JobMatches_Jobs
+  Users ||--o{ SavedJobs : FK_SavedJobs_Users
+  Jobs ||--o{ SavedJobs : FK_SavedJobs_Jobs
+  Users ||--o{ JobApplications : FK_JobApplications_Users
+  CVs ||--o{ JobApplications : FK_JobApplications_CVs
+  Jobs ||--o{ JobApplications : FK_JobApplications_Jobs
+  JobApplications ||--o{ GeneratedCVs : FK_GeneratedCVs_JobApplications
+  JobApplications ||--o{ GeneratedCoverLetters : FK_CoverLetters_JobApplications
+  JobApplications ||--o| GeneratedInterviewQuestions : FK_GeneratedInterviewQuestions_JobApplications
 
-  Users { int UserId PK string Email }
-  CVs { int CVId PK int UserId FK string CVTextHash }
-  Skills { int SkillId PK string SkillName }
-  ExtractedCVSkills { int CVId FK int SkillId FK decimal YearsOfExperience }
-  Jobs { int JobId PK string Title string DescriptionHash }
-  JobRequiredSkills { int JobId FK int SkillId FK }
-  JobMatches { int JobMatchId PK int UserId FK int CVId FK int JobId FK decimal FinalScore }
-  SavedJobs { int SavedJobId PK int UserId FK int JobId FK }
-  JobApplications { int ApplicationId PK int UserId FK int CVId FK int JobId FK }
-  GeneratedCVs { int ApplicationId FK string GeneratedPdfFileName }
-  GeneratedCoverLetters { int ApplicationId FK string GeneratedPdfFileName }
-  GeneratedInterviewQuestions { int ApplicationId FK string GeneratedPdfFileName }
-  PasswordResetTokens { int UserId FK string TokenHash }
-  JobSearchCache { string CacheKey PK string JobIdsJson datetime ExpiresAt }
+  Users {
+    int UserId PK
+    string Email
+  }
+  CVs {
+    int CVId PK
+    int UserId FK
+    string CVTextHash
+  }
+  Skills {
+    int SkillId PK
+    string SkillName
+  }
+  ExtractedCVSkills {
+    int ExtractedCVSkillId PK
+    int CVId FK
+    int SkillId FK
+    decimal YearsOfExperience
+  }
+  Jobs {
+    int JobId PK
+    string Title
+    string DescriptionHash
+  }
+  JobRequiredSkills {
+    int JobRequiredSkillId PK
+    int JobId FK
+    int SkillId FK
+  }
+  JobMatches {
+    int JobMatchId PK
+    int UserId FK
+    int CVId FK
+    int JobId FK
+    decimal FinalScore
+  }
+  SavedJobs {
+    int SavedJobId PK
+    int UserId FK
+    int JobId FK
+  }
+  JobApplications {
+    int ApplicationId PK
+    int UserId FK
+    int CVId FK
+    int JobId FK
+  }
+  GeneratedCVs {
+    int GeneratedCVId PK
+    int ApplicationId FK
+  }
+  GeneratedCoverLetters {
+    int GeneratedCoverLetterId PK
+    int ApplicationId FK
+  }
+  GeneratedInterviewQuestions {
+    int GeneratedInterviewQuestionId PK
+    int ApplicationId FK
+  }
+  PasswordResetTokens {
+    int PasswordResetTokenId PK
+    int UserId FK
+    string TokenHash
+  }
+  JobSearchCache {
+    int CacheId PK
+    string CacheKey UK
+    string JobIdsJson
+    datetime ExpiresAt
+  }
 ```
 
-Note that `JobSearchCache` has no direct job FK; it contains serialized cached job identifiers. Direction and multiplicity follow the child-table foreign keys. The exact SQL DDL, not this reduced visual, is the authoritative schema for columns and constraints.
+**Cardinality caveat:** Each SQL FK requires its child row to reference a parent except **JobApplications.CVId**, which is nullable. The generated-interview table has a **UNIQUE ApplicationId** constraint and is therefore **0..1 per application**. The other generated document tables have no matching unique ApplicationId constraint and can contain multiple rows per application. `JobSearchCache.CacheKey` is **unique but not the PK**; `CacheId` is the PK. `JobSearchCache` has no FK to `Jobs`; `JobIdsJson` is serialized IDs.
 
 ## Selected UML domain classes
 
