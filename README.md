@@ -534,22 +534,42 @@ Computer Science Student at Lebanese American University (LAU)
 
 ## Reproducible quality checks (November 2026)
 
-This repository includes `CareerMatch.API.Tests`, an xUnit suite testing isolated
-search-cache key normalization, deduplication and description hashing, request
-validation, and JWT generation. To execute locally:
+The test project now has **14 isolated xUnit tests**, **9 in-memory ASP.NET
+Core HTTP integration cases**, and **6 disposable SQL Server regression tests**.
+[GitHub Actions run 45021712378](https://github.com/Wassimchalak/CareerMatch/actions/runs/45021712378)
+verified **29 passed, 0 failed, 0 skipped** on 22 Nov 2026.
+The React production build and ESLint checks also passed in that run.
+
+Run the 23 SQL-independent tests locally (no external API credentials required):
 
 ```sh
-dotnet test CareerMatch.API.Tests/CareerMatch.API.Tests.csproj --configuration Release
+dotnet test CareerMatch.API.Tests/CareerMatch.API.Tests.csproj --configuration Release --filter 'Category!=SqlIntegration'
 cd CareerMatch.Frontend
 npm ci
 npm run build
 npm run lint
+npm audit --omit=dev --audit-level=high
 ```
 
-The GitHub Actions workflow under `.github/workflows/careermatch-tests.yml`
-runs backend tests on pushes and pull requests. Always inspect the workflow
-run status; committing a workflow does not itself prove any test passed.
-Earlier Swagger and Visual Studio manual tests remain distinct from automated tests.
+The separate SQL integration CI job launches a disposable SQL Server 2022
+Docker service and enables the six database tests explicitly using
+`CAREERMATCH_SQL_INTEGRATION_ENABLED=true`. Its test database must be
+named `CareerMatchIntegrationTests` and hosted on localhost, never the
+production SQL Server. The test schema uses synthetic fixture records.
+
+Run histories, measured local provider-stub cache bypass checks, and the
+release-management plan are documented in:
+
+- [Verification ledger](docs/Capstone_Quality_Evidence_2026.md)
+- [Current GitHub-Issues-linked Gantt, costs and risk plan](docs/CSC599_Current_Project_Plan_and_Risk_Register.md)
+- [AI matching evaluation protocol](docs/AI_Matching_Validation_Protocol.md)
+- [Cache/performance evaluation protocol](docs/Cache_Performance_Experiment.md)
+
+The original 22 manual Swagger cases and Visual Studio method checks remain
+separate evidence. The automated SQL/provider-stub test verifies that ten
+repeated cached searches avoid another stub request, **not** live Bebity
+latency or actual user savings. Independently rated AI-model consistency and
+controlled live-provider benchmarks have not been conducted.
 
 ### Current limitations and tradeoffs
 
