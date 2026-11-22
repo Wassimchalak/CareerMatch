@@ -213,9 +213,13 @@ using (FileStream boldFontStream =
     );
 }
 var app = builder.Build();
-app.MapOpenApi();
-app.UseSwagger();
-app.UseSwaggerUI();
+// API documentation is for local development, not the public production surface.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors("FrontendPolicy");
 if (!app.Environment.IsProduction())
