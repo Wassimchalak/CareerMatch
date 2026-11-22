@@ -22,18 +22,21 @@ not be described as a historical task-tracking record.
 
 ## New verified tests (GitHub Actions)
 
-Workflow [run 45018832603](https://github.com/Wassimchalak/CareerMatch/actions/runs/45018832603)
-completed successfully: **14 passed, 0 failed, 0 skipped**, .NET 10.
-Test source is in `CareerMatch.API.Tests/`. Test scope: search cache-key
-normalization, deduplication/content hashes, search validation, and JWT
-generation. The workflow records TRX and coverage artifacts. The reported
-count is **not** a measured application-wide coverage percentage.
+[Run 45021712378](https://github.com/Wassimchalak/CareerMatch/actions/runs/45021712378), **22 November 2026**, completed successfully on .NET 10 with:
 
-A subsequent security dependency-upgrade run
-[45018942864](https://github.com/Wassimchalak/CareerMatch/actions/runs/45018942864)
-also passed the same 14 tests and emitted **no NU1902/NU1903 advisories**.
-This checks restore/build/unit-test behavior, not production deployment or
-database integration. The latest combined [run 45019305718](https://github.com/Wassimchalak/CareerMatch/actions/runs/45019305718) is **fully successful**: backend xUnit tests 14/14 passed; React TypeScript production build and ESLint checks passed. The initial frontend dependency install reported **21 npm audit findings (11 moderate, 10 high)**. On 22 November a separate one-time remediation job [45020077253](https://github.com/Wassimchalak/CareerMatch/actions/runs/45020077253) executed `npm audit fix` without `--force`, updated `package-lock.json`, and then reported **0 npm audit vulnerabilities**. The same job passed the production audit, TypeScript production build and ESLint. The temporary auto-fix workflow was removed after use; these checks do not replace a full runtime security audit.
+| Test category | Passed | Scope |
+| --- | ---: | --- |
+| Original isolated xUnit tests | **14** | Search-cache key, deduplication/description hashes, input validation, JWT claims and signing-key checks |
+| New in-memory ASP.NET Core HTTP tests | **9** | JWT 401/400 paths, health, authenticated malformed requests, Production OpenAPI/Swagger 404 |
+| New disposable SQL Server tests | **6** | CV/job description score freshness, ownership, latest application history, foreign delete rejection, one provider-stub call for 11 searches |
+| **Total** | **29 / 29** | Zero failed, zero skipped |
+
+These suites use synthetic credentials and data and do **not** access the production database. The SQL regression job uses SQL Server 2022 in a disposable GitHub Actions container with a *minimal test fixture schema*, not the full production schema. Test results do not establish all feature end-to-end behavior or a measured application-wide coverage percentage.
+
+The same run passed the React TypeScript production build and ESLint checks. The earlier frontend lockfile had **21 npm audit findings** (11 moderate, 10 high). The one-time [dependency remediation run 45020077253](https://github.com/Wassimchalak/CareerMatch/actions/runs/45020077253) used `npm audit fix` without forced major upgrades, reported **0 npm audit vulnerabilities after updates**, and passed frontend build and lint. Its temporary workflow was removed. Patched .NET dependencies also removed prior NU1902/NU1903 advisories (initial [run 45018942864](https://github.com/Wassimchalak/CareerMatch/actions/runs/45018942864)). A remaining NU1510 package-pruning warning does not by itself establish a vulnerability.
+
+**Controlled local cache experiment:** one initial search and ten repeats against an isolated deterministic fake provider resulted in **one** total stub request and stable cached job IDs. The run uses actual Dapper SQL caching logic. This demonstrates the cache path and does **not** represent real external Bebity latency, AI scoring accuracy, 24-hour freshness or production cost savings.
+
 
 ## Source review and fixes on the improvement branch
 
@@ -49,19 +52,19 @@ database integration. The latest combined [run 45019305718](https://github.com/W
 - GitHub CI: xUnit .NET tests, plus a React TypeScript build/lint check.
 
 These changes live in an isolated branch until the pull request is merged.
-Database integration regression results and production rollout are **not**
-asserted. Live authentication secrets, real CVs and production database
+Disposable SQL integration results are verified in the CI run above; full
+production-schema staging and production rollout are **not** asserted. Live authentication secrets, real CVs and production database
 dumps must not be committed as test fixtures.
 
 ## Evaluation still required for stronger claims
 
 - **AI matching consistency:** obtain consented anonymized CV/job examples
   with independent human labels; include junior/senior mismatches and synonyms;
-  repeat inference with fixed configuration. The attached analysis utility
+  repeat inference with fixed configuration. See docs/AI_Matching_Validation_Protocol.md. The attached analysis utility
   computes actual differences but is not evidence by itself.
 - **Cache/performance:** run documented cold/warm requests with real HTTP
   timings, confirm cache-hit state server-side, record sample size, errors,
-  medians/p95, version, location, and provider conditions.
+  medians/p95, version, location, and provider conditions. See docs/Cache_Performance_Experiment.md.
 - **User acceptance:** approximately 50 users and positive responses are
   *student-reported informal feedback*. No survey denominator or verified
   satisfaction percentages exist.
