@@ -22,6 +22,19 @@ public sealed class HttpPipelineFactory : WebApplicationFactory<Program>
     internal const string JwtIssuer = "CareerMatchPipelineTests";
     internal const string JwtAudience = "CareerMatchTestCandidates";
 
+    // Minimal-hosting reads required settings during WebApplication.CreateBuilder.
+    // Set harmless, TEST-ONLY environment settings before the factory starts the app.
+    public HttpPipelineFactory()
+    {
+        Environment.SetEnvironmentVariable("Resend__ApiKey", "integration-test-placeholder");
+        Environment.SetEnvironmentVariable("Jwt__Key", JwtKey);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", JwtIssuer);
+        Environment.SetEnvironmentVariable("Jwt__Audience", JwtAudience);
+        Environment.SetEnvironmentVariable("Jwt__ExpireMinutes", "10");
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection",
+            "Server=127.0.0.1,1;Database=DO_NOT_CONNECT;User Id=none;Password=none;TrustServerCertificate=True;");
+    }
+
     internal static IConfiguration BuildConfiguration() =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
