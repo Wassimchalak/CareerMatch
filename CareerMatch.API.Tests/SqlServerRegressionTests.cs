@@ -1,9 +1,13 @@
 using CareerMatch.API.Data;
+using CareerMatch.API.Models;
+using System.Diagnostics;
+using System.Net;
+using System.Text;
+using Microsoft.Extensions.Configuration;
 using CareerMatch.API.DTOs;
 using CareerMatch.API.Services;
 using Dapper;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace CareerMatch.API.Tests;
@@ -75,12 +79,28 @@ IF DB_ID('CareerMatchIntegrationTests') IS NULL
 IF OBJECT_ID('dbo.Jobs') IS NULL CREATE TABLE dbo.Jobs
 (
     JobId int IDENTITY PRIMARY KEY,
+    ExternalJobId nvarchar(200) NULL,
+    Description nvarchar(max) NULL,
+    EmploymentType nvarchar(100) NULL,
+    WorkMode nvarchar(100) NULL,
+    PostedDate datetime2 NULL,
+    CreatedAt datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    PrimaryRole nvarchar(300) NULL,
+    ClassificationHash nvarchar(100) NULL,
+    ClassifiedAt datetime2 NULL,
     Title nvarchar(300) NOT NULL,
     CompanyName nvarchar(200) NOT NULL,
     Country nvarchar(100) NOT NULL,
     City nvarchar(100) NULL,
     JobUrl nvarchar(700) NOT NULL,
     DescriptionHash nvarchar(100) NULL
+);
+IF OBJECT_ID('dbo.JobSearchCache') IS NULL CREATE TABLE dbo.JobSearchCache
+(
+    CacheKey nvarchar(100) NOT NULL PRIMARY KEY,
+    JobIdsJson nvarchar(max) NOT NULL,
+    CreatedAt datetime2 NOT NULL,
+    ExpiresAt datetime2 NOT NULL
 );
 IF OBJECT_ID('dbo.CVs') IS NULL CREATE TABLE dbo.CVs
 (
@@ -120,6 +140,7 @@ IF OBJECT_ID('dbo.JobApplications') IS NULL CREATE TABLE dbo.JobApplications
     ApplicationStatus nvarchar(40) NOT NULL,
     AppliedAt datetime2 NOT NULL
 );
+DELETE FROM dbo.JobSearchCache;
 DELETE FROM dbo.SavedJobs;
 DELETE FROM dbo.JobApplications;
 DELETE FROM dbo.JobMatches;
@@ -230,6 +251,77 @@ VALUES(10,@jobId,'Applied',SYSUTCDATETIME());", new { jobId });
         Assert.False(await service.DeleteApplicationAsync(20, applicationId));
         Assert.Single(await service.GetUserApplicationsAsync(10));
         Assert.Empty(await service.GetUserApplicationsAsync(20));
+    }
+
+    /// <summary>
+    /// Controlled local caching experiment with a deterministic provider stub
+    /// and real SQL Server. Times are local test-run timings, NOT external API
+    /// response-time estimates and NOT AI model benchmarks.
+    /// </summary>
+    [Fact]
+    public async Task IdenticalJobSearch_ReusesSqlCacheWithoutSecondProviderCall()
+    {
+        var handler = new CountingProviderHandler();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Apify:ApiToken"] = "TEST-ONLY-NEVER-SENT-TO-NETWORK"
+            }).Build();
+        var service = new JobSearchService(
+            new HttpClient(handler), config, _factory, null!);
+        var filters = new JobSearchRequest
+        {
+            Country = "Lebanon",
+            Role = "Backend Developer",
+            City = "Beirut",
+            WorkType = "on-site",
+            EmploymentType = "full-time"
+        };
+
+        var clock = Stopwatch.StartNew();
+        var cold = await service.SearchJobsAsync(filters);
+        long coldElapsed = clock.ElapsedMilliseconds;
+        Assert.Single(cold);
+        Assert.Equal(1, handler.CallCount);
+        var warmTimes = new List<long>();
+        for (int i = 0; i < 10; i++)
+        {
+            clock.Restart();
+            var warm = await service.SearchJobsAsync(filters);
+            warmTimes.Add(clock.ElapsedMilliseconds);
+            Assert.Single(warm);
+            Assert.Equal(cold[0].JobId, warm[0].JobId);
+        }
+        Assert.Equal(1, handler.CallCount);
+        Console.WriteLine("Controlled SQL cache test: provider stub calls=1; cold_ms="
+            + coldElapsed + "; warm_ms=" + string.Join(",", warmTimes)
+            + "; production provider/AI latency NOT measured");
+    }
+
+    private sealed class CountingProviderHandler : HttpMessageHandler
+    {
+        private int _callCount;
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _callCount);
+            // Synthetic fixture is local to CI; it is never sent to Apify.
+            const string body = """
+            [{
+              "title": "Backend Engineer",
+              "companyName": "Synthetic Test Employer",
+              "description": "C# and SQL Server experience",
+              "jobUrl": "https://www.linkedin.com/jobs/view/backend-engineer-4484670870/",
+              "postedTime": "2 days ago"
+            }]
+            """;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            });
+        }
     }
 
     [Fact]
