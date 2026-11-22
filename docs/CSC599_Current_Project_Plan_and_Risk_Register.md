@@ -54,6 +54,24 @@ gantt
 
 No fabricated SAR, USD, or hours. Planned incremental test cost is constrained by the quotas/credits the student explicitly approves; repository tests use local fixtures and should not spend API credits.
 
+## Quantified 2027 pilot operating budget (forward estimate only)
+
+**Prepared 22 November 2026.** This is a planning *spending ceiling* for approximately **50 monthly active users**, not a receipt, invoice, usage-based quote, or any actual 2026 expenditure. Real provider calls and the hosting tier may differ.
+
+| Planned item | Estimate / month (USD) | Basis and disclosure |
+|---|---:|---|
+| MonsterASP.NET/SQL hosting | $6.95 | Example introductory premium plan at https://www.monsterasp.net/Pricing/ ; annual billing / renewal can differ |
+| Apify/Bebity | $19.00 | Starter plan **if** monthly free credits are insufficient; https://apify.com/pricing ; actual actor fees / usage must be checked |
+| OpenAI model usage | $20.00 | **Discretionary monthly spending cap**, not a model-token projection or vendor quote |
+| Domain renewal reserve | $1.50 | Assume a hypothetical $18/year divided by 12, not the student's actual registrar bill |
+| Resend and frontend hosting | $0.00 | Assume free quotas remain adequate; verify https://resend.com/pricing |
+| Subtotal | **$47.45** | Sum of estimates above |
+| Contingency / quota reserve | **$9.49** | 20% × $47.45 |
+| **Monthly planning ceiling** | **$56.94** | Excludes tax, FX, overage, and migration labor |
+| **Annualized equivalent** | **$683.28** | 12 × $56.94; not a prepaid contract |
+
+**Historical paid amounts remain unknown:** the student reported past OpenAI API and domain payments without supplying actual invoices. Do not substitute these scenario assumptions for genuine 2026 costs. Estimate intentionally includes a paid Apify contingency despite the student reporting current free-tier usage. If free credits suffice, this would lower the spending ceiling; if actor usage is higher, the ceiling may be inadequate.
+
 ## Risk register (current assessment, not historical logs)
 
 Likelihood (L) and impact (I) are planning judgments from 1 (low) to 5 (high), with score L×I.
