@@ -45,6 +45,44 @@ type GeneratedDocumentType =
     | "cv"
     | "coverLetter";
 
+const getErrorMessage = (
+    error: unknown,
+    fallbackMessage: string
+) => {
+    if (axios.isAxiosError(error)) {
+        const responseData = error.response?.data;
+
+        if (typeof responseData === "string") {
+            return responseData;
+        }
+
+        if (
+            responseData &&
+            typeof responseData === "object"
+        ) {
+            if (
+                "message" in responseData &&
+                typeof responseData.message === "string"
+            ) {
+                return responseData.message;
+            }
+
+            if (
+                "title" in responseData &&
+                typeof responseData.title === "string"
+            ) {
+                return responseData.title;
+            }
+        }
+    }
+
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    return fallbackMessage;
+};
+
 function SavedJobsPage() {
     const navigate = useNavigate();
 
@@ -132,43 +170,6 @@ function SavedJobsPage() {
         void loadSavedJobs();
     }, []);
 
-    const getErrorMessage = (
-        error: unknown,
-        fallbackMessage: string
-    ) => {
-        if (axios.isAxiosError(error)) {
-            const responseData = error.response?.data;
-
-            if (typeof responseData === "string") {
-                return responseData;
-            }
-
-            if (
-                responseData &&
-                typeof responseData === "object"
-            ) {
-                if (
-                    "message" in responseData &&
-                    typeof responseData.message === "string"
-                ) {
-                    return responseData.message;
-                }
-
-                if (
-                    "title" in responseData &&
-                    typeof responseData.title === "string"
-                ) {
-                    return responseData.title;
-                }
-            }
-        }
-
-        if (error instanceof Error) {
-            return error.message;
-        }
-
-        return fallbackMessage;
-    };
 
     const handleLogout = () => {
         localStorage.removeItem("token");
