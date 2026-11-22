@@ -17,7 +17,7 @@ Screenshots supplied during project development illustrate the following distinc
 | Software Engineer with .NET requirements | 65% | Explanation notes strong .NET skills but 2–4-year experience gap |
 | Recruitable, Junior Consultant | 70% | Junior position; explanation notes relevant analysis/research skills |
 | TikTok, Data Analyst Project Intern | 78% | Intern level; explanation notes strong Python/stats alignment |
-| Qui(k) Hire Staffing, Backend Software Engineer | 85% | Explanation describes strong alignment of engineering skills |
+| Quik Hire Staffing, Backend Software Engineer | 85% | Explanation describes strong alignment of engineering skills |
 
 These are observed **different postings**, not controlled matched pairs. They show face-valid examples of why individual scores differed, but **cannot** establish calibration, accuracy, fairness, repeatability, or a causal seniority penalty. Job descriptions, CV states, AI versions and dates may differ.
 
