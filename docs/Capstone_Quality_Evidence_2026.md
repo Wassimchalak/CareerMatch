@@ -33,7 +33,7 @@ A subsequent security dependency-upgrade run
 [45018942864](https://github.com/Wassimchalak/CareerMatch/actions/runs/45018942864)
 also passed the same 14 tests and emitted **no NU1902/NU1903 advisories**.
 This checks restore/build/unit-test behavior, not production deployment or
-database integration. The latest combined [run 45019305718](https://github.com/Wassimchalak/CareerMatch/actions/runs/45019305718) is **fully successful**: backend xUnit tests 14/14 passed; React TypeScript production build and ESLint checks passed. This run also reports **21 npm audit findings (11 moderate, 10 high)** from the frontend install; their exploitability and direct-vs-transitive origin have **not** been triaged, so the system must not be called dependency-vulnerability-free.
+database integration. The latest combined [run 45019305718](https://github.com/Wassimchalak/CareerMatch/actions/runs/45019305718) is **fully successful**: backend xUnit tests 14/14 passed; React TypeScript production build and ESLint checks passed. The initial frontend dependency install reported **21 npm audit findings (11 moderate, 10 high)**. On 22 November a separate one-time remediation job [45020077253](https://github.com/Wassimchalak/CareerMatch/actions/runs/45020077253) executed `npm audit fix` without `--force`, updated `package-lock.json`, and then reported **0 npm audit vulnerabilities**. The same job passed the production audit, TypeScript production build and ESLint. The temporary auto-fix workflow was removed after use; these checks do not replace a full runtime security audit.
 
 ## Source review and fixes on the improvement branch
 
