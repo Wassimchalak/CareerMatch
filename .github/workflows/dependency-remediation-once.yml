@@ -1,0 +1,44 @@
+name: One-time frontend dependency remediation
+on:
+  push:
+    branches: [capstone-quality-2026-11-22]
+    paths: [.github/workflows/dependency-remediation-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch-npm-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: CareerMatch.Frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: CareerMatch.Frontend/package-lock.json
+      - name: Install exact current packages
+        run: npm ci
+      - name: Apply npm non-breaking security fixes
+        run: npm audit fix
+      - name: Verify production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify React production build
+        run: npm run build
+      - name: Verify React lint
+        run: npm run lint
+      - name: Commit updated dependency manifests to improvement branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Remediate frontend npm audit dependencies without forced major upgrades"
+            git push origin HEAD:capstone-quality-2026-11-22
+          else
+            echo "No dependency files changed."
+          fi
