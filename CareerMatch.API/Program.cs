@@ -239,3 +239,6 @@ app.MapGet("/health", () =>
     });
 });
 app.Run();
+
+// Enables ASP.NET Core WebApplicationFactory integration tests without changing runtime behavior.
+public partial class Program { }
