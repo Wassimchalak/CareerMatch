@@ -32,3 +32,23 @@ jobs:
           name: careermatch-backend-test-results
           path: |
             **/TestResults/**
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: CareerMatch.Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: CareerMatch.Frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type-check and production build
+        run: npm run build
+      - name: Lint source
+        run: npm run lint
