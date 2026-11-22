@@ -192,9 +192,17 @@ public async Task<List<JobApplicationHistoryResponse>>
                 FROM JobApplications ja
                 INNER JOIN Jobs j
                     ON ja.JobId = j.JobId
-                LEFT JOIN JobMatches jm
-                    ON jm.UserId = ja.UserId
-                    AND jm.JobId = ja.JobId
+                OUTER APPLY
+                (
+                    SELECT TOP (1)
+                        matchRow.FinalScore,
+                        matchRow.MatchExplanation,
+                        matchRow.Recommendation
+                    FROM JobMatches matchRow
+                    WHERE matchRow.UserId = ja.UserId
+                      AND matchRow.JobId = ja.JobId
+                    ORDER BY matchRow.CreatedAt DESC, matchRow.JobMatchId DESC
+                ) jm
                 WHERE ja.UserId = @UserId
                 ORDER BY ja.AppliedAt DESC;
                 ",

@@ -83,6 +83,9 @@ namespace CareerMatch.API.Services
                 CVId DESC
         ) latestCv
             ON jm.CVTextHash = latestCv.CVTextHash
+        INNER JOIN Jobs currentJob
+            ON currentJob.JobId = jm.JobId
+           AND currentJob.DescriptionHash = jm.DescriptionHash
         WHERE jm.UserId = @UserId
           AND jm.JobId = @JobId
         ORDER BY

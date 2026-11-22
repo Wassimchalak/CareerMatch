@@ -452,7 +452,7 @@ namespace CareerMatch.API.Services
             catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
             {
                 throw new TimeoutException(
-                    "Bebity job search did not complete within 25 seconds."
+                    "Bebity job search did not complete within 120 seconds."
                 );
             }
 

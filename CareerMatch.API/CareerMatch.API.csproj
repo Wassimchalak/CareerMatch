@@ -22,6 +22,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <!-- Override vulnerable transitive dependencies with patched .NET 10 releases. -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.15" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="QuestPDF" Version="2026.7.0" />
     <PackageReference Include="Resend" Version="0.6.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />

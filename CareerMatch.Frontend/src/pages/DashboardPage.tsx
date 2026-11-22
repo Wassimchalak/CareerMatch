@@ -496,7 +496,6 @@ function DashboardPage() {
 }, [errorMessage]);
 useEffect(() => {
     if (!searchingJobs) {
-        setLoadingMessageIndex(0);
         return;
     }
 
@@ -513,7 +512,6 @@ useEffect(() => {
 
 useEffect(() => {
     if (!uploadingCV) {
-        setCvUploadMessageIndex(0);
         return;
     }
 
@@ -532,7 +530,6 @@ useEffect(() => {
 
     useEffect(() => {
         if (!calculatingAllScores) {
-            setMatchingMessageIndex(0);
             return;
         }
 
@@ -711,8 +708,12 @@ SetStateAction<Set<number>>
     };
 
     useEffect(() => {
-        void loadSavedJobs();
-        void loadAppliedJobs();
+        // Schedule API synchronization after the effect, not during render.
+        const timerId = window.setTimeout(() => {
+            void loadSavedJobs();
+            void loadAppliedJobs();
+        }, 0);
+        return () => window.clearTimeout(timerId);
     }, [location.pathname]);
 
     const normalizeJobsResponse = (
@@ -874,6 +875,7 @@ const handleToggleJobDescription = (jobId: number) => {
         }
 
         clearMessages();
+        setCvUploadMessageIndex(0);
         setUploadingCV(true);
 
         try {
@@ -978,6 +980,7 @@ const handleToggleJobDescription = (jobId: number) => {
         This prevents the page height from suddenly
         collapsing on mobile while searching.
     */
+    setLoadingMessageIndex(0);
     setSearchingJobs(true);
 
     try {
@@ -1063,6 +1066,7 @@ const handleToggleJobDescription = (jobId: number) => {
 
         clearMessages();
         setNoSuitableMatches(false);
+        setMatchingMessageIndex(0);
         setCalculatingAllScores(true);
 
         /*

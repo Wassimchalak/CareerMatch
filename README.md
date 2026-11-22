@@ -4,9 +4,9 @@
 
 CareerMatch is a full-stack web application designed to help job seekers discover opportunities based on their preferences, understand how well their CV matches specific jobs, and prepare stronger job applications using AI.
 
-The platform was developed during my full-time Full-Stack Development internship at **Computer Technology & Services (CTServ)**.
+The platform was developed as an individual CSC599 final-year capstone project and during full-stack development work at **Computer Technology & Services (CTServ)**.
 
-🌐 **Live Application:** https://career-match-iota.vercel.app/
+🌐 **Live Application:** https://career-match-app.com/
 
 ---
 
@@ -83,7 +83,7 @@ Users can search using:
 - Employment type
 - Work mode
 
-CareerMatch integrates with the **JSearch API** to retrieve external job opportunities.
+CareerMatch integrates with the **Bebity LinkedIn Jobs Scraper via Apify** to retrieve external job opportunities.
 
 Returned jobs are processed, deduplicated, classified, filtered according to the user's preferences, and stored in the database.
 
@@ -175,7 +175,7 @@ Job discovery and AI matching are separated into two stages.
 User Search Preferences
           |
           v
-       JSearch
+       Bebity/Apify
           |
           v
       Job Results
@@ -249,7 +249,7 @@ Classification results can be cached when the underlying job content has not cha
 ### Frontend
 
 - React
-- JavaScript
+- TypeScript
 
 ### Database
 
@@ -258,7 +258,8 @@ Classification results can be cached when the underlying job content has not cha
 ### AI & External APIs
 
 - OpenAI API
-- JSearch API
+- Bebity/Apify provider
+- Resend (password-recovery emails)
 
 ### Authentication & Security
 
@@ -274,8 +275,9 @@ Classification results can be cached when the underlying job content has not cha
 ### Deployment
 
 - Vercel
-- Render
-- Cloudflare
+- Backend hosting
+- SQL Server hosting
+- Cloudflare / custom domain (where configured)
 
 ---
 
@@ -295,7 +297,7 @@ Classification results can be cached when the underlying job content has not cha
               +----------------+----------------+
               |                |                |
               v                v                v
-       Business Services   OpenAI API      JSearch API
+       Business Services   OpenAI API      Bebity/Apify provider
               |
               v
             Dapper
@@ -334,7 +336,7 @@ Handles:
 
 Handles:
 
-- JSearch integration
+- Bebity/Apify integration
 - Job retrieval
 - Job filtering
 - Classification
@@ -447,7 +449,7 @@ Make sure you have:
 - Node.js and npm
 - Microsoft SQL Server
 - OpenAI API credentials
-- JSearch / RapidAPI credentials
+- Bebity/Apify / Apify API token
 
 ### Clone the Repository
 
@@ -476,7 +478,7 @@ npm install
 npm run dev
 ```
 
-> **Security:** Never commit OpenAI API keys, RapidAPI/JSearch keys, database passwords, JWT secrets, email credentials, or other private configuration values to the repository.
+> **Security:** Never commit OpenAI API keys, RapidAPI/Bebity/Apify keys, database passwords, JWT secrets, email credentials, or other private configuration values to the repository.
 
 ---
 
@@ -525,4 +527,68 @@ Computer Science Student at Lebanese American University (LAU)
 
 **LinkedIn:** https://www.linkedin.com/in/wassim-chalak/
 
-**Live CareerMatch:** https://career-match-iota.vercel.app/
+**Live CareerMatch:** https://career-match-app.com/
+
+
+---
+
+## Reproducible quality checks (November 2026)
+
+The test project now has **14 isolated xUnit tests**, **9 in-memory ASP.NET
+Core HTTP integration cases**, and **6 disposable SQL Server regression tests**.
+[GitHub Actions run 45021712378](https://github.com/Wassimchalak/CareerMatch/actions/runs/45021712378)
+verified **29 passed, 0 failed, 0 skipped** on 22 Nov 2026.
+The React production build and ESLint checks also passed in that run.
+
+Run the 23 SQL-independent tests locally (no external API credentials required):
+
+```sh
+dotnet test CareerMatch.API.Tests/CareerMatch.API.Tests.csproj --configuration Release --filter 'Category!=SqlIntegration'
+cd CareerMatch.Frontend
+npm ci
+npm run build
+npm run lint
+npm audit --omit=dev --audit-level=high
+```
+
+The separate SQL integration CI job launches a disposable SQL Server 2022
+Docker service and enables the six database tests explicitly using
+`CAREERMATCH_SQL_INTEGRATION_ENABLED=true`. Its test database must be
+named `CareerMatchIntegrationTests` and hosted on localhost, never the
+production SQL Server. The test schema uses synthetic fixture records.
+
+Run histories, measured local provider-stub cache bypass checks, and the
+release-management plan are documented in:
+
+- [Verification ledger](docs/Capstone_Quality_Evidence_2026.md)
+- [Current GitHub-Issues-linked Gantt, costs and risk plan](docs/CSC599_Current_Project_Plan_and_Risk_Register.md)
+- [AI matching evaluation protocol](docs/AI_Matching_Validation_Protocol.md)
+- [Cache/performance evaluation protocol](docs/Cache_Performance_Experiment.md)
+
+The original 22 manual Swagger cases and Visual Studio method checks remain
+separate evidence. The automated SQL/provider-stub test verifies that ten
+repeated cached searches avoid another stub request, **not** live Bebity
+latency or actual user savings. Independently rated AI-model consistency and
+controlled live-provider benchmarks have not been conducted.
+
+### Current limitations and tradeoffs
+
+- Up to ten jobs are returned per search; 24-hour search caching can delay
+  discovery of jobs newly posted within that interval.
+- AI match percentages are decision-support estimates, **not validated
+  hiring probabilities**; the Best Matches 60% display threshold is a product
+  choice, not an externally calibrated decision boundary.
+- Individual saved jobs can receive a match score below 60%.
+- English and French CVs are supported for analysis; dependable end-to-end
+  Arabic refinement is not currently supported.
+- The platform records application *handoffs*, not proof that an application
+  was successfully submitted on a third-party website.
+- Users should review all generated CVs, cover letters, and interview materials
+  before sending them.
+
+### Security and deployment
+
+Never commit API tokens, access credentials, real CVs, or database exports.
+Configure `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Resend__ApiKey`,
+`OpenAI__ApiKey`, and `Apify__ApiToken` privately. Swagger/OpenAPI
+documentation is intentionally limited to the Development environment.
