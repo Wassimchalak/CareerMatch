@@ -33,7 +33,7 @@ A subsequent security dependency-upgrade run
 [45018942864](https://github.com/Wassimchalak/CareerMatch/actions/runs/45018942864)
 also passed the same 14 tests and emitted **no NU1902/NU1903 advisories**.
 This checks restore/build/unit-test behavior, not production deployment or
-database integration. Frontend CI results require separate inspection.
+database integration. The latest combined [run 45019305718](https://github.com/Wassimchalak/CareerMatch/actions/runs/45019305718) is **fully successful**: backend xUnit tests 14/14 passed; React TypeScript production build and ESLint checks passed. This run also reports **21 npm audit findings (11 moderate, 10 high)** from the frontend install; their exploitability and direct-vs-transitive origin have **not** been triaged, so the system must not be called dependency-vulnerability-free.
 
 ## Source review and fixes on the improvement branch
 
