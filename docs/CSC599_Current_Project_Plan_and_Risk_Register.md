@@ -20,7 +20,7 @@
 | 3.1 | Literature, diagrams, rubric and report [#5](https://github.com/Wassimchalak/CareerMatch/issues/5) | Nov 29–Dec 2 | Student | Exact 25–30 pages, source-linked claims, no unsupported evidence | In progress |
 | 3.2 | Presentation, source delivery [#6](https://github.com/Wassimchalak/CareerMatch/issues/6) | Dec 2–4 | Student | Rehearsed fallback demo, PDF and source submitted | Pending |
 
-Dates are **forward-looking targets established on 22 November 2026**, not proof that a task was carried out on a historical date. PR #1 remains a draft until staging review is complete.
+Dates are **forward-looking targets established on 22 November 2026**, not proof that a task was carried out on a historical date. PR #1 is ready for human review but is not merged; full staging verification remains a release gate.
 
 ## Current Gantt chart
 
@@ -54,23 +54,24 @@ gantt
 
 No fabricated SAR, USD, or hours. Planned incremental test cost is constrained by the quotas/credits the student explicitly approves; repository tests use local fixtures and should not spend API credits.
 
-## Quantified 2027 pilot operating budget (forward estimate only)
+## Cost evidence and non-AI planning scenario (forward estimate only)
 
-**Prepared 22 November 2026.** This is a planning *spending ceiling* for approximately **50 monthly active users**, not a receipt, invoice, usage-based quote, or any actual 2026 expenditure. Real provider calls and the hosting tier may differ.
+**Updated 22 November 2026.** The student reported paying for OpenAI API usage and a domain purchase, but did **not** provide historical amounts or a current monthly OpenAI expense. The previous model-generated **$20/month OpenAI allowance was unsupported and has been removed**. Do not present an OpenAI monthly amount until model/token records and actual invoices support it.
 
-| Planned item | Estimate / month (USD) | Basis and disclosure |
+The following is a **partial, illustrative non-AI scenario**, not a full project spending ceiling, not a payment history, not a vendor quote, and **not an estimate of OpenAI expense**. Current usage on Bebity/Apify is reported as free tier.
+
+| Planning item | Illustrative USD/month | Basis and caveat |
 |---|---:|---|
-| MonsterASP.NET/SQL hosting | $6.95 | Example introductory premium plan at https://www.monsterasp.net/Pricing/ ; annual billing / renewal can differ |
-| Apify/Bebity | $19.00 | Starter plan **if** monthly free credits are insufficient; https://apify.com/pricing ; actual actor fees / usage must be checked |
-| OpenAI model usage | $20.00 | **Discretionary monthly spending cap**, not a model-token projection or vendor quote |
-| Domain renewal reserve | $1.50 | Assume a hypothetical $18/year divided by 12, not the student's actual registrar bill |
-| Resend and frontend hosting | $0.00 | Assume free quotas remain adequate; verify https://resend.com/pricing |
-| Subtotal | **$47.45** | Sum of estimates above |
-| Contingency / quota reserve | **$9.49** | 20% × $47.45 |
-| **Monthly planning ceiling** | **$56.94** | Excludes tax, FX, overage, and migration labor |
-| **Annualized equivalent** | **$683.28** | 12 × $56.94; not a prepaid contract |
+| MonsterASP.NET/SQL | $6.95 | Example introductory hosting rate at https://www.monsterasp.net/Pricing/ ; actual tier and renewal may differ |
+| Apify/Bebity | $19.00 | Conditional starter tier **only if** free credits are insufficient, at https://apify.com/pricing/ ; actor usage not measured |
+| Domain renewal | $1.50 | Hypothetical $18 annual renewal / 12; student’s actual paid or renewal amount not supplied |
+| Resend and frontend hosting | $0.00 | Assumes free quotas remain adequate; verify https://resend.com/pricing |
+| **Non-AI scenario subtotal** | **$27.45** | Only listed illustrative items |
+| Non-AI contingency, 20% | $5.49 | 20% x $27.45 |
+| **Illustrative non-AI scenario** | **$32.94/month** | **EXCLUDES OpenAI and any other unknown expenses** |
+| **OpenAI usage** | **Unknown; not estimated** | Reconcile actual usage invoices, model/token rates and expected activity before forecasting |
 
-**Historical paid amounts remain unknown:** the student reported past OpenAI API and domain payments without supplying actual invoices. Do not substitute these scenario assumptions for genuine 2026 costs. Estimate intentionally includes a paid Apify contingency despite the student reporting current free-tier usage. If free credits suffice, this would lower the spending ceiling; if actor usage is higher, the ceiling may be inadequate.
+The $32.94 figure is **not the total monthly project budget** or an expenditure cap; its simple annualization is **$395.28 before AI, taxes, overruns, or other services**. Historical OpenAI/domain amounts remain unverified. If real receipts are provided, record them separately from the prospective estimates. No budget figures should be described as historical spend.
 
 ## Risk register (current assessment, not historical logs)
 
