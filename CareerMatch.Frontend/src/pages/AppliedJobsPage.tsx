@@ -193,7 +193,7 @@ function AppliedJobsPage() {
 
         const fileNameMatch =
             contentDisposition.match(
-                /filename=\"?([^";]+)\"?/i
+                /filename="?([^";]+)"?/i
             );
 
         return fileNameMatch?.[1]?.trim() ||
